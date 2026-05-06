@@ -1,0 +1,17 @@
+{
+  "name": "Inventur",
+  "short_name": "Inventur",
+  "description": "Inventur-Verwaltung",
+  "start_url": "/",
+  "display": "fullscreen",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

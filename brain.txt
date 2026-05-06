@@ -1,0 +1,226 @@
+# brain.txt — Kontext für LLM (z. B. Claude Code): Projekt „vibe-inventur“
+
+Diese Datei beschreibt Aufbau, Verhalten, Design, Abhängigkeiten, Ports, Umgebungsvariablen und typische Fallstricke. Sie ergänzt README.md und pocketbase/ANLEITUNG_*.md.
+
+---
+
+## 1. Zweck
+
+Web-App für **Inventur / Zählen**: Artikelstammdaten (PocketBase), Zählsessions, laufende Zählungen, Archiv abgeschlossener Inventuren. **Login und Nutzerverwaltung** über PocketBase (Auth-Collection `users`). Rollen steuern Magazin-Lesen/Schreiben, Inventur-Zählen, Admin-Funktionen.
+
+---
+
+## 2. Technologie-Stack
+
+| Schicht | Technologie |
+|---------|-------------|
+| Frontend | React 19, Vite 7, Tailwind CSS 4 (`@tailwindcss/vite`), lucide-react (Icons) |
+| Backend (BFF) | Node.js, Express 5 (`server.mjs`, ES modules `type: module`) |
+| Datenbank / Auth | **PocketBase** (eigenständige Go-Binary, nicht nur npm-Paket `pocketbase` für Client) |
+| Barcode | `@zxing/browser` (Kamera-Scan; braucht Secure Context: HTTPS oder localhost) |
+| Export / PDF | jspdf, jspdf-autotable, xlsx |
+| Mail (Einladungen) | nodemailer (Express); PocketBase kann zusätzlich eigenes SMTP für Verifikation/Reset |
+
+---
+
+## 3. Projektstruktur (relevant)
+
+```
+vibe-inventur/
+├── package.json          # Scripts: dev, server, build, start, pb, bootstrap:tenant, lint
+├── vite.config.js        # MPA: index.html + backend.html; Proxy /api → localhost:3000
+├── server.mjs            # Express: static dist, /api/pb → POCKETBASE_URL, Nutzer/Einladung/Mail-APIs
+├── env.example           # Vorlage aller .env-Variablen (im Repo)
+├── .env                  # Lokal/Server (nicht committen); dotenv in server.mjs
+├── brain.txt             # Diese Datei
+├── index.html            # Zähler-/Mobile-PWA-Einstieg (data-vibe-entry="counting")
+├── backend.html          # Desktop-Backend-Einstieg (data-vibe-entry="backend")
+├── src/
+│   ├── main.jsx          # Einstieg index.html → App mit countingApp=true
+│   ├── backend-main.jsx  # Einstieg backend.html → App mit countingApp=false + backend.css
+│   ├── App.jsx           # Hauptlogik: Views, Inventur, Barcode, Sessions (sehr groß)
+│   ├── App.css           # Layout, Admin-Tabellen, Header, Mobile-Menü
+│   ├── index.css         # Tailwind + @theme (Markenfarben Sky), .ui-* Komponenten-Klassen
+│   ├── backend.css       # Desktop-Overrides (html.backend-doc, kein Hamburger-Menü)
+│   ├── components/       # LoginView, AdminView, ArticleView, InventurDashboard, UserManagement, …
+│   └── lib/
+│       ├── pocketbase.js           # PocketBase-Client; URL: VITE_POCKETBASE_URL oder origin+/api/pb
+│       ├── pocketbaseCollections.js # Collection-Namen (per VITE_* überschreibbar)
+│       ├── userCapabilities.js     # Rollen: admin, lagerleiter, inventur, magazin_readonly (+ Legacy users)
+│       └── … (inventurArchiv, zaehlung, lagerAccess, …)
+├── lib/
+│   └── tenantBootstrap.mjs # Optional: Mandanten-Bootstrap per Superuser-API beim Serverstart
+├── pb_migrations/        # PocketBase JS-Migrationen (Schema/Rules); alphabetisch/versioniert
+├── pb_data/              # PocketBase SQLite + Uploads (lokal; Backup wichtig; oft nicht im Git)
+├── pocketbase-bin/       # Kann pb.zip enthalten; Binary heißt lokal `pocketbase` (plattformabhängig)
+├── data/
+│   └── mail-settings.json # Von Express geschrieben (SMTP aus Admin-UI); in .gitignore
+└── pocketbase/
+    ├── ANLEITUNG_ENTWICKLUNG.md
+    ├── ANLEITUNG_COLLECTIONS.md
+    └── ANLEITUNG_AUTH_INVITES_MFA.md
+```
+
+---
+
+## 4. Zwei Frontend-Einstiege (MPA)
+
+Vite `appType: 'mpa'`, zwei HTML-Entrypoints im Build:
+
+| Datei | data-vibe-entry | Nutzung |
+|-------|-----------------|--------|
+| index.html | counting | **Zähler-App**: Mobile/PWA, Inventur-UI mit Zählsession, Barcode, Kategorien; feste Header-Navigation; Kamera-UI relevant |
+| backend.html | backend | **Desktop-Backend**: gleiche `App.jsx`, aber `countingApp=false` → kein „Zähler-only“ UI; `backend.css` aktiviert Desktop-Layout (min-width 1100px, Seitenleiste statt Hamburger) |
+
+`App.jsx` prüft `document.documentElement.getAttribute('data-vibe-entry')` in `resolveCountingEntryUi()`.
+
+---
+
+## 5. Aussehen / Design
+
+- **Framework:** Tailwind 4 in `src/index.css` mit `@import "tailwindcss"` und `@theme { … }`.
+- **Farben:** Sky als Brand (`--color-brand-500` ff.), Slate für Text/UI, helles Theme (`color-scheme: light`).
+- **Schrift:** Inter, System-UI-Fallbacks.
+- **Wiederverwendbare Klassen:** `.ui-card`, `.ui-input`, `.ui-btn`, `.ui-btn-primary`, `.ui-btn-secondary`, `.ui-btn-danger`.
+- **App.css:** Umfangreiche Layout-Regeln (fixer Header, Kategorien-Leiste, Inventur-Kacheln, Admin-Tabellen mit Zebra/Hover über CSS-Variablen in `:root`).
+- **Mobile:** `viewport` mit `user-scalable=no`, `viewport-fit=cover`, Safe-Area-Padding am `body`.
+- **PWA:** `public/manifest.json`, Apple meta tags in index.html.
+
+---
+
+## 6. Verhalten (kurz)
+
+- **Auth:** PocketBase `pb.authStore`; nach Login je Rolle unterschiedliche Views (Dashboard Zählen, Magazin/Artikel, Lagerverwaltung, Admin, Mitarbeiter, E-Mail-SMTP-Einstellungen, Account).
+- **PocketBase-URL:** Wenn `VITE_POCKETBASE_URL` gesetzt → Browser spricht **direkt** mit PocketBase (CORS in PB nötig). Wenn **nicht** gesetzt → Basis-URL ist `window.location.origin + '/api/pb'` → **Express muss laufen** und proxyt zu `POCKETBASE_URL` (Produktion: ein Host).
+- **Barcode:** ZXing über Video; Abgleich mit Trim und optional nur-Ziffern (`barcodesMatch`). Optional Produktname von **Open Food Facts** (`https://world.openfoodfacts.org/api/v2/product/...`).
+- **Zählsession:** sessionStorage-Key `vibe-inventur-zaehl-session-id`; Archivierung in `inventur_archiv`; Live-Zählen in `zaehlung_aktuell` verknüpft mit `zaehl_sessions`.
+- **Express-Zusatz-APIs (nicht von PocketBase):** z. B. `/api/invite/send`, `/api/invite/accept`, `/api/users`, `/api/mail-settings`, `/api/health` — benötigen oft Superuser-Token serverseitig (`POCKETBASE_ADMIN_*`).
+
+---
+
+## 7. Rollen (PocketBase `users`)
+
+Siehe `src/lib/userCapabilities.js` und Migrationen (z. B. `1775500000_users_roles_tenant_rules.js`, `1777130000_users_role_select_all_app_roles.js`).
+
+- **admin:** voller Zugriff inkl. `manageUsers`
+- **lagerleiter:** Magazin lesen/schreiben, Inventur; keine Nutzerverwaltung
+- **inventur:** Inventur ja, Magazin nur lesen
+- **magazin_readonly:** nur Magazin lesen
+- **Legacy:** `users` wird wie inventur behandelt; `is_admin` und `permissions.manageUsers` können Admin-Rechte erweitern
+
+---
+
+## 8. PocketBase: Migrationen und Datenpfad
+
+- Migrationen liegen in **`pb_migrations/`**. PocketBase startet mit **`--dir`** (Datenbank) und **`--migrationsDir`** (dieser Ordner).
+- **Kritischer Fehler:** PocketBase **ohne** `--dir ./pb_data` vom „falschen“ CWD zu starten legt/leert eine andere DB (z. B. unter `pocketbase-bin/pb_data`). Immer explizit **`--dir ./pb_data`** zum **gewünschten** Datenordner oder `npm run pb` aus Projektroot nutzen.
+- Collections (Standardnamen): `users`, `user_invites`, `artikel`, `zaehl_sessions`, `zaehlung_aktuell`, `inventur_archiv`, `standorte`, `lager`, `unterlager`, `user_unterlager` — siehe `pocketbaseCollections.js` und `ANLEITUNG_COLLECTIONS.md`.
+- **`pocketbase-bin`:** Repo kann `pb.zip` haben; für Betrieb die **passende PocketBase-Binary** für OS/Arch (Linux amd64/arm64, macOS, …) von pocketbase.io verwenden und ausführbar machen. `package.json` Script `pb` erwartet `./pocketbase-bin/pocketbase`.
+
+---
+
+## 9. Zusätzliche Software — Installationsreihenfolge
+
+1. **Node.js** (LTS, npm funktionsfähig) — für `npm install` / `npm ci`.
+2. Im Projektroot: **`npm install`** (oder `npm ci` bei Lockfile). Auf dem Zielserver **immer** installieren; `node_modules` von anderem OS nicht kopieren (native Module z. B. Tailwind Oxide).
+3. **PocketBase-Binary** beschaffen, in `pocketbase-bin/pocketbase` (oder Pfade in Scripts anpassen), `chmod +x`.
+4. **`.env`** aus `env.example` ableiten (siehe Abschnitt 11).
+5. PocketBase starten: **`npm run pb`** (oder gleichwertiger `serve` mit `--dir` und `--migrationsDir`).
+6. Erstes Mal: PocketBase Admin unter `http://127.0.0.1:8090/_/` — Superuser anlegen falls leer.
+7. Entwicklung:
+   - **Variante A:** `.env` mit `VITE_POCKETBASE_URL=http://127.0.0.1:8090` + CORS in PB für `http://localhost:5173` → nur **`npm run dev`**
+   - **Variante B:** `POCKETBASE_URL` + Admin-Creds in `.env`, **kein** `VITE_POCKETBASE_URL` → **`npm run server`** (Port 3000) **und** **`npm run dev`** (Port 5173; Vite proxyt `/api` → 3000)
+8. Produktion: **`npm run build`** dann **`node server.mjs`** oder **`npm start`** (build + server). PocketBase muss separat laufen (oder anderer Host, dann `POCKETBASE_URL` anpassen).
+
+Optional Produktion: Reverse Proxy (Nginx/Caddy) für TLS auf Port 443 → Proxy zu Node `PORT` (default 3000); PocketBase nur intern (127.0.0.1:8090).
+
+---
+
+## 10. Ports (Standard)
+
+| Dienst | Port | Bemerkung |
+|--------|------|-----------|
+| Vite Dev | 5173 | `npm run dev`; `/api` → Proxy zu 3000 |
+| Express | 3000 | `PORT` env überschreibbar; liefert `dist` + APIs |
+| PocketBase | 8090 | Standard PB; nicht zwingend öffentlich, wenn nur über `/api/pb` |
+
+---
+
+## 11. Umgebungsvariablen (Überblick)
+
+Vollständige Kommentare: **`env.example`**. Wichtigste:
+
+**Express / PocketBase (Backend):**
+- `POCKETBASE_URL` — Basis-URL ohne trailing slash (z. B. `http://127.0.0.1:8090`)
+- `POCKETBASE_ADMIN_EMAIL`, `POCKETBASE_ADMIN_PASSWORD` — Superuser für Server-APIs und Bootstrap
+- `POCKETBASE_USERS_COLLECTION`, `POCKETBASE_INVITES_COLLECTION` — optional, Defaults `users`, `user_invites`
+- `PORT` — Express
+- `HTTPS_KEY`, `HTTPS_CERT` oder Dateien unter `certs/` — optional TLS direkt in Node (Smartphone-Kamera im LAN)
+- `APP_PUBLIC_URL` — öffentliche URL für Einladungslinks (Produktion)
+- `APP_NAME` — Anzeigename in Mails
+- SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` — oder nur `SMTP_PASS` wenn PB SMTP aktiv (siehe server.mjs)
+- `TENANT_BOOTSTRAP_ON_START` und weitere `BOOTSTRAP_*` / `DEFAULT_*` — siehe `env.example` und `lib/tenantBootstrap.mjs`
+
+**Vite (nur zur Build-Zeit / Dev):**
+- `VITE_POCKETBASE_URL` — direkter PB-Zugriff vom Browser
+- `VITE_POCKETBASE_*_COLLECTION` — Collection-Namen überschreiben
+
+Nach Änderung an `VITE_*`: Dev-Server neu starten; für Produktions-Build: `npm run build` erneut.
+
+---
+
+## 12. Berechtigungen, Geheimnisse, Git
+
+- **Nicht committen:** `.env`, `data/mail-settings.json` (kann SMTP-Passwort), `certs/*.pem`, `pb_data/` (je nach Team-Policy; enthält DB + Dateien), `node_modules`, `dist`.
+- **server.mjs** setzt auf `mail-settings.json` nach Schreiben `chmod 0600` (Unix).
+- **PocketBase:** Superuser-Passwort, API Rules in Produktion restriktiv setzen (Migrationen); Admin-Endpoint nicht öffentlich exponieren ohne Absicherung.
+
+---
+
+## 13. NPM-Scripts (package.json)
+
+- `npm run dev` — Vite
+- `npm run server` — nur `node server.mjs` (ohne build; braucht ggf. vorhandenes `dist` für volles UI)
+- `npm run build` — Vite build (beide HTML-Einträge)
+- `npm start` — `build` + `node server.mjs`
+- `npm run pb` — PocketBase serve mit `--dir ./pb_data --migrationsDir ./pb_migrations`
+- `npm run bootstrap:tenant` — `scripts/bootstrap-tenant.mjs` (Mandanten-Bootstrap)
+- `npm run lint` — ESLint
+
+---
+
+## 14. API-Endpunkte Express (Auswahl)
+
+- `GET /api/health` — `{ status: 'ok' }`
+- `GET/POST/…` unter `/api/pb/*` — Proxy zu PocketBase (Roh-Body für Uploads)
+- `/api/users`, `/api/invite/*`, `/api/mail-settings` — siehe `server.mjs`
+
+---
+
+## 15. Tests / Qualität
+
+- ESLint konfiguriert (`npm run lint`); keine automatisierten Unit-Tests im beschriebenen Setup zwingend vorhanden — bei Änderungen manuell kritische Flows prüfen (Login, Zählen, Archiv, Einladung, Mail).
+
+---
+
+## 16. Typische Probleme (für Debugging)
+
+- **Keine Artikel / 403:** PocketBase API Rules oder falsche Collection-Namen; Migrationen fehlen oder falsche DB (`--dir`).
+- **`/api/pb` Netzwerkfehler in Dev:** Variante B ohne laufenden `npm run server`.
+- **CORS in Dev Variante A:** Origin in PocketBase erlauben.
+- **Kamera geht nicht:** Nur HTTPS oder localhost; öffentlich HTTP blockiert oft getUserMedia.
+- **Einladungslink zeigt localhost:** `APP_PUBLIC_URL` in Produktion setzen.
+- **Rollen-PATCH fehlgeschlagen:** Select-Feld `role` in PB muss alle App-Werte kennen (Migration `1777130000`).
+
+---
+
+## 17. Weiterführende Doku im Repo
+
+- `README.md` — Schnellstart Login/PocketBase
+- `pocketbase/ANLEITUNG_ENTWICKLUNG.md` — Dev-Setups A/B, Produktion
+- `pocketbase/ANLEITUNG_COLLECTIONS.md` — Schema, Rules, Migrationen
+- `pocketbase/ANLEITUNG_AUTH_INVITES_MFA.md` — Auth, Einladungen, MFA, SMTP
+
+---
+
+*Generiert als strukturierter Projektkontext; bei Abweichungen im Code immer die jeweilige Quelldatei maßgeblich.*

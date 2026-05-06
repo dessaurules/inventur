@@ -1,0 +1,49 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Secrets und lokale Konfiguration (niemals committen)
+.env
+userpw
+
+# PocketBase-Datenbank (lokal, enthält echte Daten)
+pb_data/
+pb_data_backup/
+
+# Backend-Datenbank (lokal)
+vibe-inventur.db
+vibe-inventur.db-journal
+
+# Von Express geschriebene SMTP-UI-Konfiguration (keine Secrets committen)
+data/mail-settings.json
+
+# Lokale Dev-TLS-Zertifikate (optional für HTTPS / Smartphone-Kamera)
+certs/*.pem
+certs/*.crt
+certs/*.key
+
+# PocketBase Binaries (plattformspezifisch, werden über npm run setup:pb heruntergeladen)
+pocketbase-bin/pocketbase
+pocketbase-bin/pocketbase-mac-arm64
+pocketbase-bin/pocketbase-linux-arm64
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
