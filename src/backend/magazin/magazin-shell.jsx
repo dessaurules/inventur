@@ -520,6 +520,19 @@ export function MagazinShell({
     setSelectedIds(new Set())
   }
 
+  const bulkRestore = async () => {
+    if (!canMutate || !onUnarchiveArtikel) return
+    for (const id of selectedIds) {
+      const r = await onUnarchiveArtikel(id)
+      if (!r?.ok) {
+        toast.error(r?.message || 'Wiederherstellen fehlgeschlagen.')
+        return
+      }
+    }
+    toast.success('Ausgewählte Artikel wiederhergestellt.')
+    setSelectedIds(new Set())
+  }
+
   const handlePdfInvoiceFile = async (event) => {
     const f = event.target.files?.[0]
     event.target.value = ''
@@ -749,6 +762,7 @@ export function MagazinShell({
             onSetCategory={(c) => bulkSetCategory(c)}
             onDuplicate={() => bulkDuplicate()}
             onDelete={() => bulkDelete()}
+            onRestore={activeSidebar === '__archived' && onUnarchiveArtikel ? () => bulkRestore() : undefined}
             onClear={() => setSelectedIds(new Set())}
           />
         ) : (

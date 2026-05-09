@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
-import { Copy, Tag, Trash2, X } from 'lucide-react'
+import { ArchiveRestore, Copy, Tag, Trash2, X } from 'lucide-react'
 import { cn } from '../../lib/cn.js'
 
 /**
@@ -13,11 +13,13 @@ import { cn } from '../../lib/cn.js'
  * @param {(cat: string) => Promise<void>} props.onSetCategory
  * @param {() => Promise<void>} props.onDuplicate
  * @param {() => Promise<void>} props.onDelete
+ * @param {() => Promise<void>} [props.onRestore]
  * @param {() => void} props.onClear
  */
-export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDuplicate, onDelete, onClear }) {
+export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDuplicate, onDelete, onRestore, onClear }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const [restoreBusy, setRestoreBusy] = useState(false)
   const [categoryBusy, setCategoryBusy] = useState(false)
   const [duplicateBusy, setDuplicateBusy] = useState(false)
 
@@ -32,6 +34,12 @@ export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDupli
     setCategoryBusy(true)
     await onSetCategory(cat)
     setCategoryBusy(false)
+  }
+
+  const handleRestore = async () => {
+    setRestoreBusy(true)
+    await onRestore?.()
+    setRestoreBusy(false)
   }
 
   const handleDuplicate = async () => {
@@ -111,14 +119,27 @@ export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDupli
 
       {/* Footer – gleich wie DetailDrawer */}
       <footer className="mt-auto flex items-center justify-between gap-2 border-t border-border px-5 py-3">
-        <button
-          type="button"
-          onClick={() => setDeleteOpen(true)}
-          className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Archivieren
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Löschen
+          </button>
+          {onRestore && (
+            <button
+              type="button"
+              onClick={handleRestore}
+              disabled={restoreBusy}
+              className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-emerald-600 hover:bg-emerald-50 disabled:opacity-50 dark:hover:bg-emerald-950/40"
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              {restoreBusy ? 'Wird wiederhergestellt…' : 'Wiederherstellen'}
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
