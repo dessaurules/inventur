@@ -310,6 +310,7 @@ function App({ countingApp = false } = {}) {
   /** PocketBase-Auth ist beim Client-Start synchron auslesbar → kein extra „leerer“ Erstrahmen. */
   const [authReady] = useState(true)
   const [items, setItems] = useState([])
+  const [archivedItems, setArchivedItems] = useState([])
   const [loadError, setLoadError] = useState('')
   const [manualCategories, setManualCategories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('Alle')
@@ -526,10 +527,11 @@ function App({ countingApp = false } = {}) {
           sort: 'name',
           requestKey: null,
         })
-        const mapped = records
+        const allMapped = records
           .map((record) => mapPbRecordToArticle(record))
-          .filter((item) => item && item.name && !item.archived)
-        setItems(mapped)
+          .filter((item) => item && item.name)
+        setItems(allMapped.filter((item) => !item.archived))
+        setArchivedItems(allMapped.filter((item) => item.archived))
       } catch (e) {
         setItems([])
         const detail = pocketBaseFullErrorMessage(e)
@@ -1205,7 +1207,11 @@ function App({ countingApp = false } = {}) {
         { archived: true, ...tenantRes.patch },
         { requestKey: null }
       )
-      setItems((prev) => prev.filter((x) => x.id !== articleId))
+      setItems((prev) => {
+        const found = prev.find((x) => x.id === articleId)
+        if (found) setArchivedItems((a) => [...a, { ...found, archived: true }])
+        return prev.filter((x) => x.id !== articleId)
+      })
       return { ok: true, id: articleId }
     } catch (e) {
       return { ok: false, message: pocketBaseFullErrorMessage(e) }
@@ -2167,6 +2173,7 @@ function App({ countingApp = false } = {}) {
           <MagazinPage
             categories={categories}
             items={items}
+            archivedItems={archivedItems}
             loadError={loadError}
             readOnlyMagazin={!userCan(currentUser, 'magazin:write')}
             currentUser={currentUser}

@@ -8,7 +8,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Clock, GripVertical, Package, Plus, Trash2 } from 'lucide-react'
+import { Archive, Clock, GripVertical, Package, Plus, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/cn.js'
 import { loadCategoryOrder, saveCategoryOrder } from './types.js'
 
@@ -108,7 +108,7 @@ function SortableCatRow({ id, label, count, active, onClick, onRename, onDelete 
  * @param {Record<string, number>} props.countsByCategory
  * @param {string} props.activeSidebar — 'all' | '__nocat' | '__recent' | category name
  * @param {(k: string) => void} props.onSelectSidebar
- * @param {string[]} props.smartCounts — [nocat, recent]
+ * @param {string[]} props.smartCounts — [nocat, recent, archived]
  * @param {() => void} props.onAddCategory
  * @param {(from: string, to: string) => void} props.onRenameCategory
  * @param {(name: string) => void} [props.onDeleteCategory]
@@ -170,7 +170,7 @@ export function SidebarCategories({
     })
   }
 
-  const [noCatC, recentC] = smartCounts
+  const [noCatC, recentC, archivedC] = smartCounts
 
   return (
     <aside className="flex w-[220px] shrink-0 flex-col border-r border-border bg-background">
@@ -259,6 +259,24 @@ export function SidebarCategories({
                   Zuletzt bearbeitet
                 </span>
                 <span className="tabular-nums text-xs">{recentC}</span>
+              </button>
+            </li>
+            <li>
+              <button
+                type="button"
+                onClick={() => onSelectSidebar('__archived')}
+                className={cn(
+                  'flex w-full items-center justify-between rounded-md px-2 py-1.5 text-[12.5px]',
+                  activeSidebar === '__archived'
+                    ? 'bg-muted font-medium text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60'
+                )}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Archive className="h-3.5 w-3.5" />
+                  Archiviert
+                </span>
+                <span className="tabular-nums text-xs">{archivedC ?? 0}</span>
               </button>
             </li>
           </ul>

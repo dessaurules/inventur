@@ -107,6 +107,8 @@ function filterAndSort(rows, activeSidebar, query, sort) {
     list = [...list]
       .sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
       .slice(0, 50)
+  } else if (activeSidebar === '__archived') {
+    // archivierte Artikel werden separat übergeben — hier keine weitere Filterung
   } else if (activeSidebar !== 'all') {
     list = list.filter((a) => a.kategorieId === activeSidebar)
   }
@@ -138,6 +140,7 @@ function filterAndSort(rows, activeSidebar, query, sort) {
 export function MagazinShell({
   categories: categoryNamesIn,
   items,
+  archivedItems = [],
   readOnlyMagazin,
   currentUser,
   loadError = '',
@@ -217,14 +220,19 @@ export function MagazinShell({
     return m
   }, [baseArticles])
 
+  const archivedArticles = useMemo(
+    () => archivedItems.map((it) => mapItemToMagazinArtikel(it, uLabel)),
+    [archivedItems, uLabel]
+  )
+
   const smartCounts = useMemo(() => {
     const nocat = baseArticles.filter(artikelMatchesSmartNoCat).length
     const recent = Math.min(
       50,
       [...baseArticles].filter((a) => a.updatedAt).length
     )
-    return [nocat, recent]
-  }, [baseArticles])
+    return [nocat, recent, archivedArticles.length]
+  }, [baseArticles, archivedArticles])
 
   const orderedCategoryNames = useMemo(() => {
     const set = new Set(categoryNamesIn)
@@ -237,8 +245,13 @@ export function MagazinShell({
   }, [categoryNamesIn, categoryOrder])
 
   const filteredRows = useMemo(
-    () => filterAndSort(baseArticles, activeSidebar, listQuery, sort),
-    [baseArticles, activeSidebar, listQuery, sort]
+    () => filterAndSort(
+      activeSidebar === '__archived' ? archivedArticles : baseArticles,
+      activeSidebar,
+      listQuery,
+      sort,
+    ),
+    [baseArticles, archivedArticles, activeSidebar, listQuery, sort]
   )
 
   const activeMagazin = useMemo(() => {
@@ -258,8 +271,12 @@ export function MagazinShell({
       }
     }
     if (!activeArticleId) return null
-    return baseArticles.find((a) => a.id === activeArticleId) ?? null
-  }, [activeArticleId, baseArticles, uLabel])
+    return (
+      baseArticles.find((a) => a.id === activeArticleId) ??
+      archivedArticles.find((a) => a.id === activeArticleId) ??
+      null
+    )
+  }, [activeArticleId, baseArticles, archivedArticles, uLabel])
 
   const drawerOpen = Boolean(activeArticleId)
 
