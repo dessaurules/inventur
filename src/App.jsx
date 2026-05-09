@@ -1218,6 +1218,28 @@ function App({ countingApp = false } = {}) {
     }
   }
 
+  const handleUnarchiveArtikel = async (id) => {
+    const articleId = String(id ?? '').trim()
+    if (!articleId) return { ok: false, message: 'Ungültige Artikel-ID.' }
+    try {
+      const tenantRes = await buildArtikelTenantIdPatch(pb, currentUser)
+      if (!tenantRes.ok) return { ok: false, message: tenantRes.message }
+      await pb.collection(PB_ARTICLES_COLLECTION).update(
+        articleId,
+        { archived: false, ...tenantRes.patch },
+        { requestKey: null }
+      )
+      setArchivedItems((prev) => {
+        const found = prev.find((x) => x.id === articleId)
+        if (found) setItems((a) => [...a, { ...found, archived: false }])
+        return prev.filter((x) => x.id !== articleId)
+      })
+      return { ok: true, id: articleId }
+    } catch (e) {
+      return { ok: false, message: pocketBaseFullErrorMessage(e) }
+    }
+  }
+
   const handleDeleteArtikel = async (id) => {
     const articleId = String(id ?? '').trim()
     if (!articleId) return { ok: false, message: 'Ungültige Artikel-ID.' }
@@ -2184,6 +2206,7 @@ function App({ countingApp = false } = {}) {
             onBulkImportArtikel={handleBulkImportArtikel}
             onUpdateArtikel={handleUpdateArtikel}
             onArchiveArtikel={handleArchiveArtikel}
+            onUnarchiveArtikel={handleUnarchiveArtikel}
             onDeleteArtikel={handleDeleteArtikel}
           />
         )}

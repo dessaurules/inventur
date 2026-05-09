@@ -11,6 +11,7 @@
  * @property {string|null} kategorieId
  * @property {Date|null} updatedAt
  * @property {string} updatedBy
+ * @property {boolean} archived
  */
 
 /** Für Rechnungs-Import: Einzelpreis = Gebindepreis ÷ diesen Wert (1 = kein Gebinde). */
@@ -74,6 +75,7 @@ export function mapItemToMagazinArtikel(item, updatedBy = '') {
     kategorieId: cat || null,
     updatedAt: item.updatedAt ? new Date(item.updatedAt) : null,
     updatedBy,
+    archived: item.archived === true,
   }
 }
 

@@ -151,6 +151,7 @@ export function MagazinShell({
   onBulkImportArtikel,
   onUpdateArtikel,
   onArchiveArtikel,
+  onUnarchiveArtikel,
   onDeleteArtikel,
 }) {
   const canMutate = !readOnlyMagazin
@@ -775,6 +776,14 @@ export function MagazinShell({
                 } else toast.error(r?.message || 'Fehler.')
               }
             }}
+            onRestore={onUnarchiveArtikel ? async () => {
+              if (!activeMagazin || activeMagazin.id === '__new__') return
+              const r = await onUnarchiveArtikel(activeMagazin.id)
+              if (r?.ok) {
+                toast.success('Artikel wiederhergestellt.')
+                setActiveArticleId(null)
+              } else toast.error(r?.message || 'Wiederherstellen fehlgeschlagen.')
+            } : undefined}
             onDuplicate={async () => {
               if (!activeMagazin || activeMagazin.id === '__new__') return
               const raw = rawById(activeMagazin.id)

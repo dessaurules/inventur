@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Copy, History, Trash2, X } from 'lucide-react'
+import { ArchiveRestore, Copy, History, Trash2, X } from 'lucide-react'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { DetailDrawerForm } from './detail-drawer-form.jsx'
 import { ArtikelPreisHistorie } from './artikel-preis-historie.jsx'
@@ -35,6 +35,7 @@ function preisHistorieReloadKey(a) {
  * @param {(msg: string) => void} [props.onErrorToast]
  * @param {(id: string) => void} [props.onCreated]
  * @param {() => void} props.onDelete
+ * @param {() => void} [props.onRestore]
  * @param {() => void} props.onDuplicate
  * @param {boolean} [props.blockEscape] — z. B. solange die Befehlspalette offen ist (Esc nur dort)
  */
@@ -52,6 +53,7 @@ export function DetailDrawer({
   onErrorToast,
   onCreated,
   onDelete,
+  onRestore,
   onDuplicate,
 }) {
   const formRef = useRef(/** @type {{ save: () => Promise<void> } | null} */ (null))
@@ -139,15 +141,27 @@ export function DetailDrawer({
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
       <footer className="mt-auto flex items-center justify-between gap-2 border-t border-border px-5 py-3">
-        <button
-          type="button"
-          onClick={onDelete}
-          disabled={readOnly || !artikel || artikel.id === '__new__'}
-          className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-          Löschen
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={readOnly || !artikel || artikel.id === '__new__'}
+            className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Löschen
+          </button>
+          {artikel?.archived && onRestore && (
+            <button
+              type="button"
+              onClick={onRestore}
+              className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
+            >
+              <ArchiveRestore className="h-3.5 w-3.5" />
+              Wiederherstellen
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <button
             type="button"
