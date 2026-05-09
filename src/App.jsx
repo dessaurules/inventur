@@ -1207,11 +1207,12 @@ function App({ countingApp = false } = {}) {
         { archived: true, ...tenantRes.patch },
         { requestKey: null }
       )
-      setItems((prev) => {
-        const found = prev.find((x) => x.id === articleId)
-        if (found) setArchivedItems((a) => [...a, { ...found, archived: true }])
-        return prev.filter((x) => x.id !== articleId)
-      })
+      const found = items.find((x) => x.id === articleId)
+      setItems((prev) => prev.filter((x) => x.id !== articleId))
+      setArchivedItems((prev) => [
+        ...prev.filter((x) => x.id !== articleId),
+        ...(found ? [{ ...found, archived: true }] : []),
+      ])
       return { ok: true, id: articleId }
     } catch (e) {
       return { ok: false, message: pocketBaseFullErrorMessage(e) }
@@ -1229,11 +1230,12 @@ function App({ countingApp = false } = {}) {
         { archived: false, ...tenantRes.patch },
         { requestKey: null }
       )
-      setArchivedItems((prev) => {
-        const found = prev.find((x) => x.id === articleId)
-        if (found) setItems((a) => [...a, { ...found, archived: false }])
-        return prev.filter((x) => x.id !== articleId)
-      })
+      const found = archivedItems.find((x) => x.id === articleId)
+      setArchivedItems((prev) => prev.filter((x) => x.id !== articleId))
+      setItems((prev) => [
+        ...prev.filter((x) => x.id !== articleId),
+        ...(found ? [{ ...found, archived: false }] : []),
+      ])
       return { ok: true, id: articleId }
     } catch (e) {
       return { ok: false, message: pocketBaseFullErrorMessage(e) }
