@@ -198,7 +198,7 @@ function tryParseStandardSheet(data) {
     const need = missing.map((f) => GERMAN_LABEL[f] ?? f).join(', ')
     return {
       ok: false,
-      error: `Pflicht-Spalten nicht erkannt: ${need}. Kopfzeile braucht z. B. Bezeichnung und Preis; Artikelnummer ist optional.`,
+      error: `Pflicht-Spalten nicht erkannt: ${need}. Kopfzeile braucht Bezeichnung und Preis (Artikelnummer optional).`,
     }
   }
 
@@ -237,7 +237,7 @@ function tryParseStandardSheet(data) {
   }
 
   if (rows.length === 0) {
-    return { ok: false, error: 'Keine Datenzeilen mit Artikelnummer oder Name gefunden.' }
+    return { ok: false, error: 'Keine Datenzeilen mit Artikelnummer und Name gefunden.' }
   }
 
   return { ok: true, rows, mappedLabels }

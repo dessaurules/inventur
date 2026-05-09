@@ -24,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const ROOT      = path.join(__dirname, '..')
 const BIN_DIR   = path.join(ROOT, 'pocketbase-bin')
 const TARGET    = path.join(BIN_DIR, 'pocketbase')
-const VERSION   = '0.37.5'
+const VERSION   = '0.38.0'
 
 function detectPlatform() {
   const arg = (process.argv[2] ?? '').toLowerCase()

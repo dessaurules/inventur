@@ -19,7 +19,7 @@ export function ArticleListBulkBar({
   onDelete,
   onClear,
 }) {
-  if (count <= 0) return null
+  if (count <= 0 || true) return null
   return (
     <div
       role="region"

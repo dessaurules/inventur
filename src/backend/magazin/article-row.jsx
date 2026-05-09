@@ -37,7 +37,7 @@ export function ArticleRow({ artikel, selected, active, onRowClick, onToggleSele
           }}
           onCheckedChange={(v) => onToggleSelect(v === true, { shiftKey: shiftRef.current })}
           className={cn(
-            'flex h-4 w-4 items-center justify-center rounded border border-input bg-background',
+            'flex h-4 w-4 items-center justify-center rounded border border-input bg-white',
             'data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground'
           )}
           aria-label={`Auswahl ${artikel.name}`}

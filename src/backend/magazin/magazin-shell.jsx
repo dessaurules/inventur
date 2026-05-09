@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import { parseArtikelExcelBuffer } from '../../lib/excelArtikelImport'
 import { ArticleList } from './article-list.jsx'
@@ -7,7 +8,69 @@ import { DetailDrawer } from './detail-drawer.jsx'
 import { SidebarCategories } from './sidebar-categories.jsx'
 import { isEditableTarget, useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts.js'
 import { InvoiceImportDialog } from './invoice-import-dialog.jsx'
+import { BulkActionsPanel } from './bulk-actions-panel.jsx'
 import { artikelMatchesSmartNoCat, mapItemToMagazinArtikel, normalizeStueckProLiefergebinde } from './types.js'
+
+/**
+ * Bestätigungs-Dialog zum Löschen einer Kategorie.
+ */
+function DeleteCategoryDialog({ name, articleCount, onConfirm, onCancel }) {
+  const [busy, setBusy] = useState(false)
+
+  const handleConfirm = async () => {
+    setBusy(true)
+    await onConfirm()
+    setBusy(false)
+  }
+
+  return (
+    <Dialog.Root open onOpenChange={(v) => { if (!v && !busy) onCancel() }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-lg focus:outline-none"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <Dialog.Title className="mb-1 text-base font-semibold text-foreground">
+            Kategorie löschen
+          </Dialog.Title>
+          <Dialog.Description className="mb-4 text-[13px] text-muted-foreground">
+            <span className="font-medium text-foreground">„{name}"</span>
+            {articleCount > 0 ? (
+              <>
+                {' '}wird bei{' '}
+                <span className="font-medium text-foreground">
+                  {articleCount} Artikel{articleCount === 1 ? '' : 'n'}
+                </span>
+                {' '}entfernt. Die Artikel bleiben erhalten, verlieren aber ihre Kategorie-Zuordnung.
+              </>
+            ) : (
+              <> wird gelöscht. Die Kategorie enthält keine Artikel.</>
+            )}
+          </Dialog.Description>
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="rounded-md border border-border bg-background px-3 py-1.5 text-[13px] text-foreground hover:bg-muted/60 disabled:opacity-50"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={busy}
+              className="rounded-md bg-destructive px-3 py-1.5 text-[13px] font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+            >
+              {busy ? 'Wird gelöscht…' : 'Wirklich löschen'}
+            </button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
+}
 
 function userLabel(user) {
   if (!user) return ''
@@ -80,6 +143,7 @@ export function MagazinShell({
   loadError = '',
   onAddCategory,
   onRenameCategory,
+  onDeleteCategory,
   onCreateArtikel,
   onBulkImportArtikel,
   onUpdateArtikel,
@@ -113,6 +177,7 @@ export function MagazinShell({
   const [categoryOrder, setCategoryOrder] = useState(/** @type {string[] | null} */ (null))
   const [invoiceImportOpen, setInvoiceImportOpen] = useState(false)
   const [invoiceImportRows, setInvoiceImportRows] = useState(/** @type {null | object[]} */ (null))
+  const [deleteCategoryTarget, setDeleteCategoryTarget] = useState(/** @type {string | null} */ (null))
   const [invoiceParseWarnings, setInvoiceParseWarnings] = useState(/** @type {string[]} */ ([]))
 
   useEffect(() => {
@@ -248,6 +313,14 @@ export function MagazinShell({
     },
     [filteredRows]
   )
+
+  const onSelectAll = useCallback(() => {
+    setSelectedIds((prev) => {
+      const allSelected = filteredRows.length > 0 && filteredRows.every((r) => prev.has(r.id))
+      if (allSelected) return new Set()
+      return new Set(filteredRows.map((r) => r.id))
+    })
+  }, [filteredRows])
 
   const rawById = useCallback((id) => items.find((x) => x.id === id), [items])
 
@@ -410,7 +483,6 @@ export function MagazinShell({
 
   const bulkDelete = async () => {
     if (!canMutate) return
-    if (!window.confirm(`${selectedIds.size} Artikel wirklich archivieren/löschen?`)) return
     for (const id of selectedIds) {
       if (onArchiveArtikel) {
         const r = await onArchiveArtikel(id)
@@ -563,6 +635,26 @@ export function MagazinShell({
     if (name && String(name).trim()) onAddCategory(String(name).trim())
   }
 
+  const deleteCategoryPrompt = useCallback(
+    (name) => {
+      if (!onDeleteCategory) return
+      setDeleteCategoryTarget(name)
+    },
+    [onDeleteCategory]
+  )
+
+  const confirmDeleteCategory = useCallback(async () => {
+    if (!deleteCategoryTarget || !onDeleteCategory) return
+    const name = deleteCategoryTarget
+    setDeleteCategoryTarget(null)
+    const res = await onDeleteCategory(name)
+    if (res?.ok === false) {
+      toast.error(res.message || 'Kategorie konnte nicht gelöscht werden.')
+    } else {
+      toast.success(`Kategorie „${name}" gelöscht.`)
+    }
+  }, [deleteCategoryTarget, onDeleteCategory])
+
   const filterBlocksAll =
     Boolean(loadError) === false &&
     baseArticles.length > 0 &&
@@ -601,6 +693,7 @@ export function MagazinShell({
           onRenameCategory={(from, to) => {
             void onRenameCategory(from, to)
           }}
+          onDeleteCategory={canMutate ? deleteCategoryPrompt : undefined}
           onCategoryOrderChange={setCategoryOrder}
         />
         <div ref={listWrapRef} className="flex min-w-0 flex-1 flex-col">
@@ -612,6 +705,7 @@ export function MagazinShell({
             selectedIds={selectedIds}
             onActivate={onActivate}
             onSelect={onSelectRow}
+            onSelectAll={canMutate ? onSelectAll : undefined}
             query={listQuery}
             onQuery={setListQuery}
             sort={sort}
@@ -630,52 +724,63 @@ export function MagazinShell({
             }}
           />
         </div>
-        <DetailDrawer
-          artikel={activeMagazin}
-          open={drawerOpen}
-          onClose={() => setActiveArticleId(null)}
-          blockEscape={commandOpen}
-          readOnly={!canMutate}
-          kategorieNames={orderedCategoryNames}
-          onPatch={patchArticle}
-          onCreate={createArticle}
-          onSaveStatus={setSaveStatus}
-          saveStatus={saveStatus}
-          onErrorToast={(msg) => toast.error(msg)}
-          onCreated={onCreated}
-          onDelete={async () => {
-            if (!activeMagazin || activeMagazin.id === '__new__') return
-            if (!window.confirm('Diesen Artikel archivieren?')) return
-            if (onArchiveArtikel) {
-              const r = await onArchiveArtikel(activeMagazin.id)
-              if (r?.ok) {
-                toast.success('Artikel archiviert.')
-                setActiveArticleId(null)
-              } else toast.error(r?.message || 'Fehler.')
-            }
-          }}
-          onDuplicate={async () => {
-            if (!activeMagazin || activeMagazin.id === '__new__') return
-            const raw = rawById(activeMagazin.id)
-            if (!raw) return
-            const nr = `${String(raw.artikelnummer ?? '').trim()}-KOPIE-${Date.now().toString(36)}`
-            const res = await onCreateArtikel({
-              artikelnummer: nr.slice(0, 100),
-              name: `${raw.name} (Kopie)`,
-              preis: raw.preis,
-              einheit: raw.einheit || 'Stk',
-              category: raw.category ?? '',
-              lagerId: raw.lagerId ?? '',
-              unterlagerId: raw.unterlagerId ?? '',
-              stueckProLiefergebinde: raw.stueckProLiefergebinde ?? 1,
-              lieferantenArtnr: raw.lieferantenArtnr ?? '',
-            })
-            if (res?.ok && res.id) {
-              toast.success('Duplikat angelegt.')
-              setActiveArticleId(res.id)
-            } else toast.error(res?.message || 'Duplizieren fehlgeschlagen.')
-          }}
-        />
+        {selectedIds.size > 0 && canMutate ? (
+          <BulkActionsPanel
+            count={selectedIds.size}
+            kategorieNames={orderedCategoryNames}
+            onSetCategory={(c) => bulkSetCategory(c)}
+            onDuplicate={() => bulkDuplicate()}
+            onDelete={() => bulkDelete()}
+            onClear={() => setSelectedIds(new Set())}
+          />
+        ) : (
+          <DetailDrawer
+            artikel={activeMagazin}
+            open={drawerOpen}
+            onClose={() => setActiveArticleId(null)}
+            blockEscape={commandOpen}
+            readOnly={!canMutate}
+            kategorieNames={orderedCategoryNames}
+            onPatch={patchArticle}
+            onCreate={createArticle}
+            onSaveStatus={setSaveStatus}
+            saveStatus={saveStatus}
+            onErrorToast={(msg) => toast.error(msg)}
+            onCreated={onCreated}
+            onDelete={async () => {
+              if (!activeMagazin || activeMagazin.id === '__new__') return
+              if (!window.confirm('Diesen Artikel archivieren?')) return
+              if (onArchiveArtikel) {
+                const r = await onArchiveArtikel(activeMagazin.id)
+                if (r?.ok) {
+                  toast.success('Artikel archiviert.')
+                  setActiveArticleId(null)
+                } else toast.error(r?.message || 'Fehler.')
+              }
+            }}
+            onDuplicate={async () => {
+              if (!activeMagazin || activeMagazin.id === '__new__') return
+              const raw = rawById(activeMagazin.id)
+              if (!raw) return
+              const nr = `${String(raw.artikelnummer ?? '').trim()}-KOPIE-${Date.now().toString(36)}`
+              const res = await onCreateArtikel({
+                artikelnummer: nr.slice(0, 100),
+                name: `${raw.name} (Kopie)`,
+                preis: raw.preis,
+                einheit: raw.einheit || 'Stk',
+                category: raw.category ?? '',
+                lagerId: raw.lagerId ?? '',
+                unterlagerId: raw.unterlagerId ?? '',
+                stueckProLiefergebinde: raw.stueckProLiefergebinde ?? 1,
+                lieferantenArtnr: raw.lieferantenArtnr ?? '',
+              })
+              if (res?.ok && res.id) {
+                toast.success('Duplikat angelegt.')
+                setActiveArticleId(res.id)
+              } else toast.error(res?.message || 'Duplizieren fehlgeschlagen.')
+            }}
+          />
+        )}
       </div>
       <input
         ref={excelRef}
@@ -767,6 +872,14 @@ export function MagazinShell({
         onExcelImport={() => excelRef.current?.click()}
         onExport={() => toast.message('Export ist noch nicht angebunden.')}
       />
+      {deleteCategoryTarget && (
+        <DeleteCategoryDialog
+          name={deleteCategoryTarget}
+          articleCount={items.filter((it) => String(it.category ?? '').trim() === deleteCategoryTarget).length}
+          onConfirm={confirmDeleteCategory}
+          onCancel={() => setDeleteCategoryTarget(null)}
+        />
+      )}
     </div>
   )
 }

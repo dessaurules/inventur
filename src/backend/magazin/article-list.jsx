@@ -1,11 +1,42 @@
 import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import * as Checkbox from '@radix-ui/react-checkbox'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { FileSpreadsheet, FileText, Plus } from 'lucide-react'
+import { Check, FileSpreadsheet, FileText, Plus } from 'lucide-react'
 import { ArticleRow } from './article-row.jsx'
 import { ArticleListToolbar } from './article-list-toolbar.jsx'
 import { ArticleListBulkBar } from './article-list-bulk-bar.jsx'
 import { cn } from '../../lib/cn.js'
+
+function SelectAllCheckbox({ total, selected, onSelectAll }) {
+  const allSelected = total > 0 && selected === total
+  const indeterminate = selected > 0 && selected < total
+
+  if (!onSelectAll) return <span />
+
+  return (
+    <span className="flex items-center justify-center">
+      <Checkbox.Root
+        checked={indeterminate ? 'indeterminate' : allSelected}
+        onCheckedChange={onSelectAll}
+        aria-label="Alle auswählen"
+        className={cn(
+          'flex h-4 w-4 items-center justify-center rounded border border-input bg-white',
+          'data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
+          'data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground'
+        )}
+      >
+        <Checkbox.Indicator>
+          {indeterminate ? (
+            <span className="block h-0.5 w-2.5 rounded-full bg-current" />
+          ) : (
+            <Check className="h-3 w-3" strokeWidth={3} />
+          )}
+        </Checkbox.Indicator>
+      </Checkbox.Root>
+    </span>
+  )
+}
 
 /**
  * @param {object} props
@@ -25,6 +56,7 @@ import { cn } from '../../lib/cn.js'
  * @param {() => void} props.onExcelClick
  * @param {() => void} [props.onPdfInvoiceClick]
  * @param {object} props.bulk
+ * @param {() => void} [props.onSelectAll]
  * @param {import('react').RefObject<HTMLDivElement | null>} [props.scrollParentRef]
  */
 export function ArticleList({
@@ -35,6 +67,7 @@ export function ArticleList({
   selectedIds,
   onActivate,
   onSelect,
+  onSelectAll,
   query,
   onQuery,
   sort,
@@ -147,7 +180,11 @@ export function ArticleList({
             'sticky top-0 z-10 grid grid-cols-[2rem_5.5rem_minmax(0,1fr)_5.75rem_5rem] gap-2 border-b border-border bg-background px-3 py-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground'
           )}
         >
-          <span />
+          <SelectAllCheckbox
+            total={rows.length}
+            selected={selectedIds.size}
+            onSelectAll={onSelectAll}
+          />
           <span>Nr.</span>
           <span>Name</span>
           <span className="text-right">Preis</span>

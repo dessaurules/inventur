@@ -8,15 +8,16 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Clock, GripVertical, Package, Plus } from 'lucide-react'
+import { Clock, GripVertical, Package, Plus, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/cn.js'
 import { loadCategoryOrder, saveCategoryOrder } from './types.js'
 
-function SortableCatRow({ id, label, count, active, onClick, onRename }) {
+function SortableCatRow({ id, label, count, active, onClick, onRename, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style = { transform: CSS.Transform.toString(transform), transition }
   const [editing, setEditing] = useState(false)
   const [renameValue, setRenameValue] = useState(label)
+  const [hovered, setHovered] = useState(false)
 
   if (editing) {
     return (
@@ -49,7 +50,13 @@ function SortableCatRow({ id, label, count, active, onClick, onRename }) {
   }
 
   return (
-    <li ref={setNodeRef} style={style} className={cn('flex items-stretch gap-0.5', isDragging && 'opacity-60')}>
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={cn('flex items-stretch gap-0.5', isDragging && 'opacity-60')}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <button
         type="button"
         {...attributes}
@@ -77,6 +84,20 @@ function SortableCatRow({ id, label, count, active, onClick, onRename }) {
         <span className="min-w-0 truncate">{label}</span>
         <span className="shrink-0 tabular-nums text-xs text-muted-foreground">{count}</span>
       </button>
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(label)}
+          className={cn(
+            'flex shrink-0 items-center rounded-md px-1 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive',
+            hovered ? 'opacity-100' : 'opacity-0'
+          )}
+          aria-label={`Kategorie ${label} löschen`}
+          tabIndex={hovered ? 0 : -1}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
     </li>
   )
 }
@@ -90,6 +111,7 @@ function SortableCatRow({ id, label, count, active, onClick, onRename }) {
  * @param {string[]} props.smartCounts — [nocat, recent]
  * @param {() => void} props.onAddCategory
  * @param {(from: string, to: string) => void} props.onRenameCategory
+ * @param {(name: string) => void} [props.onDeleteCategory]
  * @param {(order: string[]) => void} [props.onCategoryOrderChange]
  */
 export function SidebarCategories({
@@ -100,6 +122,7 @@ export function SidebarCategories({
   smartCounts,
   onAddCategory,
   onRenameCategory,
+  onDeleteCategory,
   onCategoryOrderChange,
 }) {
   const baseOrdered = useMemo(() => {
@@ -184,6 +207,7 @@ export function SidebarCategories({
                     active={activeSidebar === name}
                     onClick={() => onSelectSidebar(name)}
                     onRename={onRenameCategory}
+                    onDelete={onDeleteCategory}
                   />
                 ))}
               </ul>

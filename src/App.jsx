@@ -187,38 +187,14 @@ function pbFilterQuotedString(value) {
 }
 
 /**
- * Ohne Artikelnummer aber mit Barcode: DB-Default ist oft '' → Unique (tenant_id, artikelnummer) bricht beim 2. Artikel.
- * Synthetische Nummer aus Barcode (max. Länge für übliche PB-Felder ~100).
+ * Ohne Artikelnummer aber mit Barcode: erste 5 Ziffern des Barcodes als Präfix.
  */
 function artikelnummerFallbackFromBarcode(barcodeRaw) {
   const b = String(barcodeRaw ?? '').trim()
   if (!b) return ''
-  const safe = b
-    .replace(/[^\dA-Za-z._-]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-  const suffix = (safe || 'X').slice(0, 72)
+  const digits = b.replace(/\D/g, '').slice(0, 5)
+  const suffix = digits || b.replace(/[^\dA-Za-z._-]/g, '').slice(0, 5) || 'X'
   return `BC-${suffix}`
-}
-
-/**
- * Wenn weder Artikelnummer noch Barcode: PocketBase kann `artikelnummer` als Pflicht (min 1) haben —
- * ohne Wert schlägt Create fehl (index.html-Barcode-Flow hat immer Barcode → BC-…).
- */
-function artikelnummerAutoFallback() {
-  let tail = ''
-  try {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      tail = crypto.randomUUID().replace(/-/g, '').slice(0, 12)
-    }
-  } catch {
-    /* ignore */
-  }
-  if (!tail) {
-    tail = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`
-  }
-  const s = `AUTO-${tail}`
-  return s.length > 100 ? s.slice(0, 100) : s
 }
 
 function parsePreisInput(raw) {
@@ -909,12 +885,7 @@ function App({ countingApp = false } = {}) {
     if (!nrEff && bc) {
       nrEff = artikelnummerFallbackFromBarcode(bc)
     }
-    /** Nur AUTO-…: Kollision praktisch ausgeschlossen, Lookup sparen. */
-    let skipArtikelnummerDuplicateLookup = false
-    if (!nrEff) {
-      nrEff = artikelnummerAutoFallback()
-      skipArtikelnummerDuplicateLookup = true
-    }
+    const skipArtikelnummerDuplicateLookup = false
 
     if (nrEff && !skipArtikelnummerDuplicateLookup) {
       let existing = items.find((i) => String(i.artikelnummer ?? '').trim() === nrEff)
