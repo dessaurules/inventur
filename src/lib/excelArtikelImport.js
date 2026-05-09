@@ -88,12 +88,14 @@ function buildColumnMap(headers) {
 }
 
 function parsePreisCell(val) {
+  if (val == null || val === '') return NaN
   if (typeof val === 'number' && Number.isFinite(val)) return val
-  const t = String(val ?? '')
+  const t = String(val)
     .trim()
     .replace(/\s/g, '')
     .replace(/€/g, '')
     .replace(',', '.')
+  if (!t) return NaN
   const n = Number(t)
   return Number.isFinite(n) ? n : NaN
 }
@@ -161,8 +163,15 @@ function parseInventurSheetRows(data) {
     const name = String(cellVal(rawRow, 1) ?? '').trim()
     if (!artikelnummer && !name) continue
 
+    // Sammelzeilen überspringen (z. B. "Summe", reine Lieferantenzeilen ohne Preis und ohne Artikelnummer)
+    const normName = normHeader(name)
+    if (!artikelnummer && (normName === 'summe' || normName === 'gesamt' || normName === 'total')) continue
+
     const preis = parsePreisCell(cellVal(rawRow, 4))
     const einheit = String(cellVal(rawRow, 3) ?? '').trim() || 'Stk'
+
+    // Zeilen ohne Artikelnummer und ohne gültigen Preis sind wahrscheinlich keine echten Artikel
+    if (!artikelnummer && !Number.isFinite(preis)) continue
 
     rows.push({
       line,
