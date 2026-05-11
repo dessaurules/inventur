@@ -113,3 +113,10 @@ export function recordCanManageUsers(record) {
   if (p && typeof p === 'object' && p.manageUsers === true) return true
   return false
 }
+
+/** Entspricht PocketBase Rules `role = 'admin'` bzw. `is_admin`; z. B. `standorte` anlegen oder alle Standorte listen. */
+export function recordPbAdmin(record) {
+  if (!record) return false
+  if (truthyBool(record.is_admin)) return true
+  return normalizeAppRole(record) === APP_ROLES.admin
+}

@@ -84,6 +84,7 @@ export function mapPbRecordToUser(record) {
     email: record.email ?? '',
     emailConfirmed: Boolean(record.confirmed ?? record.verified),
     verified: Boolean(record.verified),
+    lastActiveAt: record.last_active_at != null && record.last_active_at !== '' ? String(record.last_active_at) : null,
     firstName: String(record.first_name ?? '').trim(),
     lastName: String(record.last_name ?? '').trim(),
     profileImage: imgName,

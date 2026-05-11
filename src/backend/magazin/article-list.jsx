@@ -56,6 +56,7 @@ function SelectAllCheckbox({ total, selected, onSelectAll }) {
  * @param {() => void} props.onExcelClick
  * @param {() => void} [props.onPdfInvoiceClick]
  * @param {object} props.bulk
+ * @param {boolean} [props.bulk.removeDisabled]
  * @param {() => void} [props.onSelectAll]
  * @param {import('react').RefObject<HTMLDivElement | null>} [props.scrollParentRef]
  */

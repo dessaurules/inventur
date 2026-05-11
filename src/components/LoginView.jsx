@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { mapPbRecordToUser, pb } from '../lib/pocketbase'
 import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage'
+import { loginWithMFA } from '../lib/auth.js'
+import { MfaModal } from './MfaModal.jsx'
 
 const USERS = PB_COLLECTIONS.users
 
@@ -61,10 +63,9 @@ function LoginView() {
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
 
-  const [mfaId, setMfaId] = useState('')
-  const [mfaEmail, setMfaEmail] = useState('')
-  const [otpId, setOtpId] = useState('')
-  const [otpCode, setOtpCode] = useState('')
+  /** @typedef {{ otpId: string, mfaId: string, email: string }} MfaChallenge */
+  /** @type {[MfaChallenge | null, (v: MfaChallenge | null) => void]} */
+  const [mfaState, setMfaState] = useState(null)
 
   const [forgotEmail, setForgotEmail] = useState('')
 
@@ -76,43 +77,27 @@ function LoginView() {
   const [invitePass, setInvitePass] = useState('')
   const [invitePass2, setInvitePass2] = useState('')
 
-  const clearMfa = useCallback(() => {
-    setMfaId('')
-    setMfaEmail('')
-    setOtpId('')
-    setOtpCode('')
-  }, [])
-
-  const sendOtpForMfa = useCallback(async (mail) => {
-    const m = String(mail || '').trim()
-    if (!m) return
-    const res = await pb.collection(USERS).requestOTP(m)
-    if (res?.otpId) setOtpId(res.otpId)
-  }, [])
-
   useEffect(() => {
-    if (mfaId && mfaEmail && !otpId) {
-      void sendOtpForMfa(mfaEmail).catch(() => {
-        /* OTP-Anforderung optional; Nutzer kann erneut senden */
-      })
-    }
-  }, [mfaId, mfaEmail, otpId, sendOtpForMfa])
+    if (panel !== 'login') setMfaState(null)
+  }, [panel])
 
-  const finishPasswordLogin = useCallback(() => {
+  const finishPasswordLogin = useCallback((opts = {}) => {
+    const skipEmailVerificationCheck = opts.skipEmailVerificationCheck === true
     const record = pb.authStore.model
     const mapped = mapPbRecordToUser(record)
-    if (mapped && !mapped.emailConfirmed) {
+    if (!skipEmailVerificationCheck && mapped && !mapped.emailConfirmed) {
       pb.authStore.clear()
+      setMfaState(null)
       setError(
         'Bitte bestätige zuerst deine E-Mail-Adresse (Link in der PocketBase-Mail). Danach erneut anmelden.'
       )
       return false
     }
     setPassword('')
-    clearMfa()
+    setMfaState(null)
     setError('')
     return true
-  }, [clearMfa])
+  }, [])
 
   const handleLoginSubmit = async (event) => {
     event.preventDefault()
@@ -124,42 +109,16 @@ function LoginView() {
       return
     }
     setBusy(true)
-    clearMfa()
+    setMfaState(null)
     try {
-      await pb.collection(USERS).authWithPassword(mail, password)
-      finishPasswordLogin()
-    } catch (e) {
-      const raw = e?.response ?? e?.data ?? e?.originalError?.response ?? {}
-      const mid = raw.mfaId
-      if (mid) {
-        setMfaId(mid)
-        setMfaEmail(mail)
-        setOtpId('')
-        setOtpCode('')
-        setInfo('Zweiter Faktor: Bitte den Code aus der E-Mail eingeben (oder „Code senden“).')
-        setBusy(false)
-        return
-      }
-      setError(pocketBaseFullErrorMessage(e))
-    }
-    setBusy(false)
-  }
-
-  const handleMfaSubmit = async (event) => {
-    event.preventDefault()
-    setError('')
-    if (!mfaId || !otpId || !otpCode.trim()) {
-      setError('Bitte den Code aus der E-Mail eingeben.')
-      return
-    }
-    setBusy(true)
-    try {
-      await pb.collection(USERS).authWithOTP(otpId, otpCode.trim(), { mfaId })
-      finishPasswordLogin()
+      const result = await loginWithMFA(mail, password, setMfaState)
+      if (result?.mfaPending) return
+      if (result?.success) finishPasswordLogin()
     } catch (e) {
       setError(pocketBaseFullErrorMessage(e))
+    } finally {
+      setBusy(false)
     }
-    setBusy(false)
   }
 
   const handleForgotSubmit = async (event) => {
@@ -304,7 +263,7 @@ function LoginView() {
           </button>
         </div>
 
-        {panel === 'login' && !mfaId ? (
+        {panel === 'login' && !mfaState ? (
           <form className="auth-form" onSubmit={handleLoginSubmit}>
             <label htmlFor="login-email">E-Mail</label>
             <input
@@ -347,68 +306,6 @@ function LoginView() {
               </button>
               <button type="button" className="auth-linkish" onClick={handleResendVerification} disabled={busy}>
                 Bestätigungsmail erneut senden
-              </button>
-            </div>
-          </form>
-        ) : null}
-
-        {panel === 'login' && mfaId ? (
-          <form className="auth-form" onSubmit={handleMfaSubmit}>
-            <p className="auth-lead auth-lead--tight">
-              Zweiter Faktor (MFA): Code aus der E-Mail an <strong>{mfaEmail}</strong>
-            </p>
-            {info ? (
-              <p className="auth-info" role="status">
-                {info}
-              </p>
-            ) : null}
-            <label htmlFor="mfa-otp">Einmalcode</label>
-            <input
-              id="mfa-otp"
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={otpCode}
-              onChange={(e) => setOtpCode(e.target.value)}
-              required
-            />
-            {error ? (
-              <p className="auth-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <button type="submit" className="auth-submit" disabled={busy}>
-              {busy ? 'Prüfen …' : 'Anmelden mit Code'}
-            </button>
-            <div className="auth-secondary-actions">
-              <button
-                type="button"
-                className="auth-linkish"
-                disabled={busy}
-                onClick={async () => {
-                  setError('')
-                  setBusy(true)
-                  try {
-                    await sendOtpForMfa(mfaEmail)
-                    setInfo('Neuer Code wurde angefordert.')
-                  } catch (e) {
-                    setError(pocketBaseFullErrorMessage(e))
-                  }
-                  setBusy(false)
-                }}
-              >
-                Code erneut senden
-              </button>
-              <button
-                type="button"
-                className="auth-linkish"
-                onClick={() => {
-                  clearMfa()
-                  setInfo('')
-                  setError('')
-                }}
-              >
-                Abbrechen
               </button>
             </div>
           </form>
@@ -571,6 +468,16 @@ function LoginView() {
           </form>
         ) : null}
       </section>
+      {panel === 'login' && mfaState ? (
+        <MfaModal
+          mfaState={mfaState}
+          onSuccess={() => {
+            /** Nach erfolgreicher OTP+E-Mail gilt die Mailbox als erreicht — PB kann `verified` trotzdem false liefern. */
+            finishPasswordLogin({ skipEmailVerificationCheck: true })
+          }}
+          onCancel={() => setMfaState(null)}
+        />
+      ) : null}
     </div>
   )
 }

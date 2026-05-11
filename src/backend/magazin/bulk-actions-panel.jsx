@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import * as Dialog from '@radix-ui/react-dialog'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { ArchiveRestore, Copy, Tag, Trash2, X } from 'lucide-react'
 import { cn } from '../../lib/cn.js'
@@ -12,23 +11,24 @@ import { cn } from '../../lib/cn.js'
  * @param {string[]} props.kategorieNames
  * @param {(cat: string) => Promise<void>} props.onSetCategory
  * @param {() => Promise<void>} props.onDuplicate
- * @param {() => Promise<void>} props.onDelete
+ * @param {() => void} props.onBeginRemove – öffnet Dialog (Archivieren / endgültig löschen) am Parent
  * @param {() => Promise<void>} [props.onRestore]
  * @param {() => void} props.onClear
+ * @param {boolean} [props.removeDisabled] – z. B. wenn weder Archivieren noch Löschen möglich
  */
-export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDuplicate, onDelete, onRestore, onClear }) {
-  const [deleteOpen, setDeleteOpen] = useState(false)
-  const [deleteBusy, setDeleteBusy] = useState(false)
+export function BulkActionsPanel({
+  count,
+  kategorieNames,
+  onSetCategory,
+  onDuplicate,
+  onBeginRemove,
+  onRestore,
+  onClear,
+  removeDisabled,
+}) {
   const [restoreBusy, setRestoreBusy] = useState(false)
   const [categoryBusy, setCategoryBusy] = useState(false)
   const [duplicateBusy, setDuplicateBusy] = useState(false)
-
-  const handleDelete = async () => {
-    setDeleteBusy(true)
-    await onDelete()
-    setDeleteBusy(false)
-    setDeleteOpen(false)
-  }
 
   const handleSetCategory = async (cat) => {
     setCategoryBusy(true)
@@ -122,8 +122,9 @@ export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDupli
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => setDeleteOpen(true)}
-            className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10"
+            onClick={() => onBeginRemove?.()}
+            disabled={removeDisabled}
+            className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10 disabled:opacity-40"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Löschen
@@ -152,47 +153,6 @@ export function BulkActionsPanel({ count, kategorieNames, onSetCategory, onDupli
           </button>
         </div>
       </footer>
-
-      {/* Bestätigungs-Dialog Archivieren */}
-      {deleteOpen && (
-        <Dialog.Root open onOpenChange={(v) => { if (!v && !deleteBusy) setDeleteOpen(false) }}>
-          <Dialog.Portal>
-            <Dialog.Overlay className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" />
-            <Dialog.Content
-              className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-background p-6 shadow-lg focus:outline-none"
-              onOpenAutoFocus={(e) => e.preventDefault()}
-            >
-              <Dialog.Title className="mb-1 text-base font-semibold text-foreground">
-                Artikel archivieren
-              </Dialog.Title>
-              <Dialog.Description className="mb-4 text-[13px] text-muted-foreground">
-                <span className="font-medium text-foreground">
-                  {count} {count === 1 ? 'Artikel wird' : 'Artikel werden'}
-                </span>{' '}
-                archiviert und aus der Liste entfernt.
-              </Dialog.Description>
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setDeleteOpen(false)}
-                  disabled={deleteBusy}
-                  className="rounded-md border border-border bg-background px-3 py-1.5 text-[13px] text-foreground hover:bg-muted/60 disabled:opacity-50"
-                >
-                  Abbrechen
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={deleteBusy}
-                  className="rounded-md bg-destructive px-3 py-1.5 text-[13px] font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
-                >
-                  {deleteBusy ? 'Wird archiviert…' : 'Wirklich archivieren'}
-                </button>
-              </div>
-            </Dialog.Content>
-          </Dialog.Portal>
-        </Dialog.Root>
-      )}
     </aside>
   )
 }

@@ -3,6 +3,7 @@ import { ArchiveRestore, Copy, History, Trash2, X } from 'lucide-react'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { DetailDrawerForm } from './detail-drawer-form.jsx'
 import { ArtikelPreisHistorie } from './artikel-preis-historie.jsx'
+import { RemoveArtikelChoiceDialog } from './remove-artikel-choice-dialog.jsx'
 import { cn } from '../../lib/cn.js'
 
 /** Neu laden der Preishistorie nach Speichern (updatedAt allein reicht nicht zuverlässig). */
@@ -34,7 +35,7 @@ function preisHistorieReloadKey(a) {
  * @param {'idle' | 'saving' | 'error'} props.saveStatus
  * @param {(msg: string) => void} [props.onErrorToast]
  * @param {(id: string) => void} [props.onCreated]
- * @param {() => void} props.onDelete
+ * @param {null | { allowArchive: boolean, allowPermanentDelete: boolean, execute: (mode: 'archive'|'permanent') => Promise<void> }} [props.articleRemove]
  * @param {() => void} [props.onRestore]
  * @param {() => void} props.onDuplicate
  * @param {boolean} [props.blockEscape] — z. B. solange die Befehlspalette offen ist (Esc nur dort)
@@ -52,13 +53,14 @@ export function DetailDrawer({
   saveStatus,
   onErrorToast,
   onCreated,
-  onDelete,
+  articleRemove,
   onRestore,
   onDuplicate,
 }) {
   const formRef = useRef(/** @type {{ save: () => Promise<void> } | null} */ (null))
   const isDraft = artikel?.id === '__new__'
   const [draftCanSubmit, setDraftCanSubmit] = useState(false)
+  const [removeChoiceOpen, setRemoveChoiceOpen] = useState(false)
 
   const handleSave = useCallback(() => {
     void formRef.current?.save()
@@ -74,6 +76,10 @@ export function DetailDrawer({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [open, onClose, blockEscape])
+
+  const canShowRemove =
+    Boolean(articleRemove) &&
+    (articleRemove.allowArchive === true || articleRemove.allowPermanentDelete === true)
 
   return (
     <aside
@@ -144,8 +150,8 @@ export function DetailDrawer({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={onDelete}
-            disabled={readOnly || !artikel || artikel.id === '__new__'}
+            onClick={() => setRemoveChoiceOpen(true)}
+            disabled={readOnly || !artikel || artikel.id === '__new__' || !canShowRemove}
             className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
           >
             <Trash2 className="h-3.5 w-3.5" />
@@ -193,6 +199,16 @@ export function DetailDrawer({
           </button>
         </div>
       </footer>
+      {articleRemove && canShowRemove ? (
+        <RemoveArtikelChoiceDialog
+          open={removeChoiceOpen}
+          onOpenChange={setRemoveChoiceOpen}
+          count={1}
+          allowArchive={articleRemove.allowArchive}
+          allowPermanentDelete={articleRemove.allowPermanentDelete}
+          onApply={articleRemove.execute}
+        />
+      ) : null}
     </aside>
   )
 }

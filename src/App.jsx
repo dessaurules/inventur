@@ -6,7 +6,6 @@ import MagazinPage from './backend/magazin/MagazinPage.jsx'
 import { normalizeStueckProLiefergebinde } from './backend/magazin/types.js'
 import LagerverwaltungPage from './components/LagerverwaltungPage.jsx'
 import MitarbeiterView from './components/MitarbeiterView.jsx'
-import MailSmtpSettingsPage from './components/MailSmtpSettingsPage.jsx'
 import AccountSettingsPage from './components/AccountSettingsPage.jsx'
 import ArticleView from './components/ArticleView.jsx'
 import LoginView from './components/LoginView.jsx'
@@ -21,6 +20,7 @@ import { archiveCountedPositionsToInventurArchiv } from './lib/inventurArchiv'
 import { resolvePositionenForSessionEnd } from './lib/sessionSnapshot'
 import { deleteZaehlungPositionsForSession } from './lib/zaehlungPosition'
 import { userCanEndZaehlSession } from './lib/zaehlSessionAccess'
+import { usePresenceHeartbeat } from './lib/usePresenceHeartbeat.js'
 import {
   fetchUnterlagerOptionsForZaehlen,
   formatUnterlagerLabel,
@@ -148,7 +148,6 @@ function readStoredAppView(countingApp) {
       v === 'lager' ||
       v === 'default' ||
       v === 'mitarbeiter' ||
-      v === 'mail' ||
       v === 'account'
     ) {
       if (countingApp && (v === 'admin' || v === 'lager' || v === 'mitarbeiter')) {
@@ -167,11 +166,9 @@ function pickViewAfterLogin(user, countingApp) {
   const stored = readStoredAppView(countingApp)
   if (countingApp) {
     if (stored === 'account') return 'account'
-    if (stored === 'mail' && userCan(user, 'manageUsers')) return 'mail'
     return 'default'
   }
   if (stored === 'mitarbeiter' && userCan(user, 'manageUsers')) return 'mitarbeiter'
-  if (stored === 'mail' && userCan(user, 'manageUsers')) return 'mail'
   if (stored === 'account') return 'account'
   if (userCan(user, 'magazin:read') && stored === 'lager') return 'lager'
   if (userCan(user, 'magazin:read') && stored === 'admin') return 'admin'
@@ -351,6 +348,10 @@ function App({ countingApp = false } = {}) {
   const barcodeScanLockRef = useRef(false)
   const barcodeZxingControlsRef = useRef(null)
   const barcodeDialogInputRef = useRef(null)
+  /** Aktiv während Excel-Massenimport → kein `confirm` bei doppelter Artikelnummer (pro Zeile). */
+  const artikelBulkExcelImportGuardRef = useRef(0)
+
+  usePresenceHeartbeat(currentUser?.id)
 
   const effectiveZaehlScope = countingApp ? zaehlScopeValue : ''
 
@@ -466,12 +467,6 @@ function App({ countingApp = false } = {}) {
 
   useEffect(() => {
     if (currentUser && view === 'mitarbeiter' && !userCan(currentUser, 'manageUsers')) {
-      setView(userCan(currentUser, 'magazin:read') ? 'admin' : 'default')
-    }
-  }, [currentUser, view])
-
-  useEffect(() => {
-    if (currentUser && view === 'mail' && !userCan(currentUser, 'manageUsers')) {
       setView(userCan(currentUser, 'magazin:read') ? 'admin' : 'default')
     }
   }, [currentUser, view])
@@ -851,18 +846,23 @@ function App({ countingApp = false } = {}) {
     return { ok: true, name, updated: updatedMaps.length, updatedIds }
   }
 
-  const handleCreateArtikel = async ({
-    artikelnummer,
-    barcode,
-    name,
-    preis,
-    einheit,
-    category,
-    lagerId,
-    unterlagerId,
-    stueckProLiefergebinde,
-    lieferantenArtnr,
-  }) => {
+  const handleCreateArtikel = async (
+    {
+      artikelnummer,
+      barcode,
+      name,
+      preis,
+      einheit,
+      category,
+      lagerId,
+      unterlagerId,
+      stueckProLiefergebinde,
+      lieferantenArtnr,
+    },
+    opts = {}
+  ) => {
+    const skipDuplicateConfirm =
+      opts.skipDuplicateConfirm === true || artikelBulkExcelImportGuardRef.current > 0
     const nr = String(artikelnummer ?? '').trim()
     const nm = String(name ?? '').trim()
     if (!nm) {
@@ -905,12 +905,14 @@ function App({ countingApp = false } = {}) {
         }
       }
       if (existing) {
-        const archHint = existing.archived ? ' (archivierter Artikel, nicht in der Liste)' : ''
-        const ok = window.confirm(
-          `Die Artikelnummer „${nrEff}“ ist bereits vergeben${archHint} (aktuell: „${existing.name}“).\n\nSoll der Artikel mit den neuen Angaben aktualisiert werden (Name, Einheit, Preis, Kategorie)?`
-        )
-        if (!ok) {
-          return { ok: false, message: 'Anlegen abgebrochen.' }
+        if (!skipDuplicateConfirm) {
+          const archHint = existing.archived ? ' (archivierter Artikel, nicht in der Liste)' : ''
+          const ok = window.confirm(
+            `Die Artikelnummer „${nrEff}“ ist bereits vergeben${archHint} (aktuell: „${existing.name}“).\n\nSoll der Artikel mit den neuen Angaben aktualisiert werden (Name, Einheit, Preis, Kategorie)?`
+          )
+          if (!ok) {
+            return { ok: false, message: 'Anlegen abgebrochen.' }
+          }
         }
         return handleUpdateArtikel({
           id: existing.id,
@@ -1106,94 +1108,100 @@ function App({ countingApp = false } = {}) {
   }
 
   const handleBulkImportArtikel = async (parsedRows) => {
+    artikelBulkExcelImportGuardRef.current += 1
     const failed = []
     const skipped = []
     let created = 0
     let updated = 0
     const seenInFile = new Set()
     const idByNr = new Map()
-    for (const it of items) {
-      const k = String(it.artikelnummer ?? '').trim()
-      if (k) idByNr.set(k, it.id)
-    }
-
-    for (const row of parsedRows) {
-      const line = row.line ?? 0
-      const nr = String(row.artikelnummer ?? '').trim()
-      const nm = String(row.name ?? '').trim()
-
-      if (!nm) {
-        failed.push({ line, message: 'Name ist ein Pflichtfeld.' })
-        continue
+    try {
+      for (const it of archivedItems) {
+        const k = String(it.artikelnummer ?? '').trim()
+        if (k && !idByNr.has(k)) idByNr.set(k, it.id)
+      }
+      for (const it of items) {
+        const k = String(it.artikelnummer ?? '').trim()
+        if (k) idByNr.set(k, it.id)
       }
 
-      const preis = coercePreisForPocketBase(row.preis)
-      if (!Number.isFinite(preis) || preis < 0) {
-        failed.push({ line, message: 'Ungültiger Preis.' })
-        continue
-      }
+      for (const row of parsedRows) {
+        const line = row.line ?? 0
+        const nr = String(row.artikelnummer ?? '').trim()
+        const nm = String(row.name ?? '').trim()
 
-      if (nr) {
-        if (seenInFile.has(nr)) {
-          skipped.push({ line, message: `Artikelnummer mehrfach in der Datei: ${nr}` })
+        if (!nm) {
+          failed.push({ line, message: 'Name ist ein Pflichtfeld.' })
           continue
         }
-        const existingId = idByNr.get(nr)
-        if (existingId) {
-          const ok = window.confirm(
-            `Die Artikelnummer „${nr}“ existiert bereits in der Datenbank.\n\nSoll der Artikel mit den Angaben aus Zeile ${line} aktualisiert werden (Name, Einheit, Preis, Kategorie)?`
-          )
-          if (!ok) {
-            skipped.push({ line, message: 'Vorhandener Artikel: Aktualisierung abgelehnt.' })
-            seenInFile.add(nr)
+
+        const preis = coercePreisForPocketBase(row.preis)
+        if (!Number.isFinite(preis) || preis < 0) {
+          failed.push({ line, message: 'Ungültiger Preis.' })
+          continue
+        }
+
+        if (nr) {
+          if (seenInFile.has(nr)) {
+            skipped.push({ line, message: `Artikelnummer mehrfach in der Datei: ${nr}` })
             continue
           }
-          const existingRow = items.find((i) => i.id === existingId)
-          const res = await handleUpdateArtikel({
-            id: existingId,
+          const existingId = idByNr.get(nr)
+          if (existingId) {
+            const existingRow =
+              items.find((i) => i.id === existingId) ??
+              archivedItems.find((i) => i.id === existingId)
+            const res = await handleUpdateArtikel({
+              id: existingId,
+              artikelnummer: nr,
+              name: nm,
+              preis,
+              einheit: row.einheit,
+              category: row.category,
+              lagerId: existingRow?.lagerId ?? '',
+              unterlagerId: existingRow?.unterlagerId ?? '',
+              stueckProLiefergebinde: existingRow?.stueckProLiefergebinde ?? 1,
+              lieferantenArtnr: existingRow?.lieferantenArtnr ?? '',
+            })
+            seenInFile.add(nr)
+            if (res.ok) {
+              updated += 1
+            } else {
+              failed.push({ line, message: res.message || 'Aktualisieren fehlgeschlagen.' })
+            }
+            continue
+          }
+          seenInFile.add(nr)
+        }
+
+        const res = await handleCreateArtikel(
+          {
             artikelnummer: nr,
             name: nm,
             preis,
             einheit: row.einheit,
             category: row.category,
-            lagerId: existingRow?.lagerId ?? '',
-            unterlagerId: existingRow?.unterlagerId ?? '',
-            stueckProLiefergebinde: existingRow?.stueckProLiefergebinde ?? 1,
-            lieferantenArtnr: existingRow?.lieferantenArtnr ?? '',
-          })
-          seenInFile.add(nr)
-          if (res.ok) {
-            updated += 1
-          } else {
-            failed.push({ line, message: res.message || 'Aktualisieren fehlgeschlagen.' })
-          }
-          continue
-        }
-        seenInFile.add(nr)
-      }
+          },
+          { skipDuplicateConfirm: true }
+        )
 
-      const res = await handleCreateArtikel({
-        artikelnummer: nr,
-        name: nm,
-        preis,
-        einheit: row.einheit,
-        category: row.category,
-      })
-
-      if (res.ok) {
-        created += 1
-        if (nr && res.id) idByNr.set(nr, res.id)
-      } else {
-        const msg = res.message || 'Anlegen fehlgeschlagen.'
-        if (/unique|already exists|artikelnummer|duplicate|doppelt/i.test(msg)) {
-          skipped.push({ line, message: msg })
+        if (res.ok) {
+          created += 1
+          if (nr && res.id) idByNr.set(nr, res.id)
         } else {
-          failed.push({ line, message: msg })
+          const msg = res.message || 'Anlegen fehlgeschlagen.'
+          if (/unique|already exists|artikelnummer|duplicate|doppelt/i.test(msg)) {
+            skipped.push({ line, message: msg })
+          } else {
+            failed.push({ line, message: msg })
+          }
         }
       }
-    }
 
-    return { created, updated, failed, skipped }
+      return { created, updated, failed, skipped }
+    } finally {
+      artikelBulkExcelImportGuardRef.current -= 1
+    }
   }
 
   const handleArchiveArtikel = async (id) => {
@@ -1274,11 +1282,6 @@ function App({ countingApp = false } = {}) {
       return
     }
     if (newView === 'mitarbeiter' && !userCan(currentUser, 'manageUsers')) {
-      setView('default')
-      setMenuOpen(false)
-      return
-    }
-    if (newView === 'mail' && !userCan(currentUser, 'manageUsers')) {
       setView('default')
       setMenuOpen(false)
       return
@@ -2067,16 +2070,6 @@ function App({ countingApp = false } = {}) {
                 >
                   Account
                 </button>
-                {currentUser && userCan(currentUser, 'manageUsers') ? (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className={view === 'mail' ? 'active' : ''}
-                    onClick={() => handleViewChange('mail')}
-                  >
-                    E-Mail (SMTP)
-                  </button>
-                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -2218,10 +2211,6 @@ function App({ countingApp = false } = {}) {
         ) : null}
 
         {authReady && currentUser && view === 'account' ? <AccountSettingsPage user={currentUser} /> : null}
-
-        {authReady && currentUser && view === 'mail' && userCan(currentUser, 'manageUsers') ? (
-          <MailSmtpSettingsPage />
-        ) : null}
 
         {authReady && currentUser && view === 'default' && userCan(currentUser, 'inventur') && (
           <>

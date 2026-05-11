@@ -17,10 +17,19 @@ import { pb } from '../lib/pocketbase'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage'
 import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
 import { formatUnterlagerLabel } from '../lib/lagerAccess'
-import { recordCanManageUsers } from '../lib/userCapabilities'
+import { recordPbAdmin } from '../lib/userCapabilities'
 import { cn } from '../lib/cn.js'
 
 const STANDORT_STORAGE_KEY = 'vibe-lager-standort-id'
+
+/** @param {Record<string, unknown> | null | undefined} record */
+function userTenantRelationId(record) {
+  if (!record) return null
+  const t = record.tenant_id
+  if (typeof t === 'string' && t.trim()) return t.trim()
+  if (typeof t?.id === 'string' && t.id.trim()) return t.id.trim()
+  return null
+}
 
 /**
  * @param {{ readOnly?: boolean, canAssignUsers?: boolean }} [props]
@@ -53,6 +62,8 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   const tenantMenuRef = useRef(/** @type {HTMLDivElement | null} */ (null))
   const newLagerInputRef = useRef(/** @type {HTMLInputElement | null} */ (null))
   const [artikelByLager, setArtikelByLager] = useState(/** @type {Record<string, number>} */ ({}))
+  const [standorteInitDone, setStandorteInitDone] = useState(false)
+  const [bootstrapStandortName, setBootstrapStandortName] = useState('')
 
   const loadLagers = useCallback(async (sid) => {
     if (!sid) {
@@ -122,35 +133,39 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      const m = pb.authStore.model
-      if (!m) {
-        if (!cancelled) setStandortId(null)
-        return
-      }
-      let sid = typeof m.tenant_id === 'string' ? m.tenant_id : m.tenant_id?.id || null
-      let list = []
-      if (recordCanManageUsers(m)) {
-        try {
-          list = await pb.collection(PB_COLLECTIONS.standorte).getFullList({
-            sort: 'name',
-            requestKey: null,
-          })
-          if (cancelled) return
-          setStandorteList(list)
+      try {
+        const m = pb.authStore.model
+        if (!m) {
+          if (!cancelled) setStandortId(null)
+          return
+        }
+        let sid = userTenantRelationId(m)
+        let list = []
+        if (recordPbAdmin(m)) {
           try {
-            const stored = sessionStorage.getItem(STANDORT_STORAGE_KEY)
-            if (stored && list.some((s) => s.id === stored)) sid = stored
-            else if (!sid && list[0]) sid = list[0].id
+            list = await pb.collection(PB_COLLECTIONS.standorte).getFullList({
+              sort: 'name',
+              requestKey: null,
+            })
+            if (cancelled) return
+            setStandorteList(list)
+            try {
+              const stored = sessionStorage.getItem(STANDORT_STORAGE_KEY)
+              if (stored && list.some((s) => s.id === stored)) sid = stored
+              else if (!sid && list[0]) sid = list[0].id
+            } catch {
+              if (!sid && list[0]) sid = list[0].id
+            }
           } catch {
-            if (!sid && list[0]) sid = list[0].id
+            if (!cancelled) setStandorteList([])
           }
-        } catch {
+        } else {
           if (!cancelled) setStandorteList([])
         }
-      } else {
-        if (!cancelled) setStandorteList([])
+        if (!cancelled) setStandortId(sid)
+      } finally {
+        if (!cancelled) setStandorteInitDone(true)
       }
-      if (!cancelled) setStandortId(sid)
     })()
     return () => {
       cancelled = true
@@ -289,18 +304,30 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
     }
   }
 
-  const createStandort = async () => {
+  const createStandort = async (opts) => {
+    const nameArg = typeof opts === 'string' ? opts : opts?.name
+    const linkTenantWhenAccountHasNone =
+      typeof opts === 'object' && opts != null && opts.linkTenantWhenAccountHasNone === true
     const m = pb.authStore.model
-    if (readOnly || !recordCanManageUsers(m)) return
+    if (readOnly || !recordPbAdmin(m)) return
+    const nm = String(nameArg ?? '').trim() || 'Neues Unternehmen'
     setBusy(true)
     try {
       const r = await pb.collection(PB_COLLECTIONS.standorte).create(
         {
-          name: 'Neues Unternehmen',
+          name: nm,
           anschrift: '',
         },
         { requestKey: null }
       )
+      if (linkTenantWhenAccountHasNone && m?.id && !userTenantRelationId(m)) {
+        try {
+          await pb.collection(PB_COLLECTIONS.users).update(m.id, { tenant_id: r.id }, { requestKey: null })
+          await pb.collection(PB_COLLECTIONS.users).authRefresh({ requestKey: null })
+        } catch {
+          /* Standort existiert; Mandant am Konto ggf. manuell setzen */
+        }
+      }
       const list = await pb.collection(PB_COLLECTIONS.standorte).getFullList({ sort: 'name', requestKey: null })
       setStandorteList(list)
       pickStandort(r.id)
@@ -518,17 +545,78 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
 
   const currentStandortName = standort?.name || standorteList.find((s) => s.id === standortId)?.name || 'Unternehmen'
 
+  if (!standortId && !standorteInitDone) {
+    return (
+      <section className="rounded-md border border-border bg-background p-6" aria-busy="true" aria-labelledby="lagerverwaltung-boot-title">
+        <h2 id="lagerverwaltung-boot-title" className="text-lg font-semibold text-foreground">
+          Lagerverwaltung
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">Mandanten werden geladen …</p>
+      </section>
+    )
+  }
+
   if (!standortId) {
+    const m = pb.authStore.model ?? undefined
+    const pbAdmin = recordPbAdmin(m)
     return (
       <section className="rounded-md border border-border bg-background p-6" aria-labelledby="lagerverwaltung-empty-title">
         <h2 id="lagerverwaltung-empty-title" className="text-lg font-semibold text-foreground">
           Lagerverwaltung
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Kein Mandant (Standort) am Benutzerkonto. Bitte in PocketBase ein{' '}
-          <code className="rounded bg-muted px-1 text-xs">tenant_id</code> setzen oder als Superuser mindestens einen
-          Standort anlegen.
-        </p>
+        {pbAdmin && !readOnly ? (
+          <div className="mt-3 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Deinem Admin-Konto fehlt ein Mandant (Standort). Lege hier ein Unternehmen an — anschließend kannst du
+              Lager und Unterlager verwalten. Deine <code className="rounded bg-muted px-1 text-xs">tenant_id</code>{' '}
+              wird automatisch gesetzt, falls sie noch leer ist.
+            </p>
+            {feedback.text ? (
+              <p
+                className={cn(
+                  'rounded-md border px-3 py-2 text-[12.5px]',
+                  feedback.type === 'error'
+                    ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                    : 'border-border bg-muted/50 text-foreground'
+                )}
+                role={feedback.type === 'error' ? 'alert' : 'status'}
+              >
+                {feedback.text}
+              </p>
+            ) : null}
+            <div className="flex max-w-lg flex-col gap-2 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                className="h-9 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-sm"
+                placeholder="Name des Unternehmens / Standorts"
+                value={bootstrapStandortName}
+                disabled={busy}
+                onChange={(e) => setBootstrapStandortName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return
+                  e.preventDefault()
+                  void createStandort({ name: bootstrapStandortName, linkTenantWhenAccountHasNone: true })
+                }}
+              />
+              <button
+                type="button"
+                disabled={busy || !bootstrapStandortName.trim()}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                onClick={() => void createStandort({ name: bootstrapStandortName, linkTenantWhenAccountHasNone: true })}
+              >
+                Unternehmen anlegen
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Kein Mandant (Standort) am Benutzerkonto. Bitte in PocketBase ein{' '}
+            <code className="rounded bg-muted px-1 text-xs">tenant_id</code> setzen oder als Administrator:in einen
+            Standort anlegen lassen — wer die Rolle <code className="rounded bg-muted px-1 text-xs">admin</code> hat,
+            kann in der Lagerverwaltung beim ersten Einrichten einen Standort erstellen (sofern Schreibzugriff
+            aktiv ist).
+          </p>
+        )}
       </section>
     )
   }
@@ -617,7 +705,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                       {s.name || s.id}
                     </button>
                   ))}
-                  {recordCanManageUsers(pb.authStore.model ?? undefined) && !readOnly ? (
+                  {recordPbAdmin(pb.authStore.model ?? undefined) && !readOnly ? (
                     <button
                       type="button"
                       role="menuitem"
@@ -1081,7 +1169,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   Erscheint auf PDF-Exporten und in der Druckansicht.
                 </p>
               </div>
-              {recordCanManageUsers(pb.authStore.model ?? undefined) && !readOnly ? (
+              {recordPbAdmin(pb.authStore.model ?? undefined) && !readOnly ? (
                 <button
                   type="button"
                   onClick={() => void createStandort()}

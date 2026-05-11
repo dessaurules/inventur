@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weiterleitung — Inventur</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 40rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+      code {
+        font-size: 0.92em;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Unter :8090 gibt es keine React-App — nur diese Datei wird für GET / geliefert (pb_public/).
+      Mit ?invite=… leitet der Browser auf die lokale Vite-Adresse weiter.
+    -->
+    <p id="status">Lädt …</p>
+    <div id="static-fallback" style="display: none">
+      <p>
+        Hier läuft <strong>nur PocketBase</strong>, nicht die Inventur-Web-Oberfläche — deshalb keine Anmeldemaske unter
+        <code>http://127.0.0.1:8090</code>.
+      </p>
+      <p>
+        Für die Inventur öffnen (Entwicklung, Vite):<br />
+        <a href="http://localhost:5173">http://localhost:5173</a>
+      </p>
+      <p>PocketBase-Admin: <a href="/_/">/_/</a></p>
+    </div>
+    <script>
+      ;(function () {
+        var q = window.location.search || ''
+        var h = window.location.hash || ''
+        var hasInvite = /[?&]invite=/.test(q)
+        var statusEl = document.getElementById('status')
+        var fallback = document.getElementById('static-fallback')
+        if (hasInvite) {
+          var a = 'http://127.0.0.1:5173'
+          var b = 'http://localhost:5173'
+          var host = window.location.hostname
+          if (host === 'localhost') {
+            window.location.replace(b + q + h)
+          } else {
+            window.location.replace(a + q + h)
+          }
+          return
+        }
+        if (statusEl) statusEl.style.display = 'none'
+        if (fallback) fallback.style.display = 'block'
+      })()
+    </script>
+  </body>
+</html>

@@ -10,7 +10,6 @@ import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import { createRequire } from 'module'
 import proxy from 'express-http-proxy'
-import nodemailer from 'nodemailer'
 import { runTenantBootstrap } from './lib/tenantBootstrap.mjs'
 import { parseSagaInvoicePdfText } from './lib/sagaInvoiceParse.mjs'
 
@@ -55,175 +54,7 @@ const ALLOWED_USER_ROLES = new Set([
   'users', // Legacy; s. Migration 1777130000 (Select-Werte in PB)
 ])
 
-const MAIL_SETTINGS_FILE = path.join(__dirname, 'data', 'mail-settings.json')
-
 let pocketbaseAdminToken = null
-
-function loadMailSettings() {
-  try {
-    if (!fs.existsSync(MAIL_SETTINGS_FILE)) return {}
-    const raw = fs.readFileSync(MAIL_SETTINGS_FILE, 'utf8')
-    const data = JSON.parse(raw)
-    return data && typeof data === 'object' ? data : {}
-  } catch {
-    return {}
-  }
-}
-
-function saveMailSettings(data) {
-  const dir = path.dirname(MAIL_SETTINGS_FILE)
-  fs.mkdirSync(dir, { recursive: true })
-  fs.writeFileSync(MAIL_SETTINGS_FILE, JSON.stringify(data, null, 2), 'utf8')
-  try {
-    fs.chmodSync(MAIL_SETTINGS_FILE, 0o600)
-  } catch {
-    /* z. B. Windows */
-  }
-}
-
-function toPublicMailSettings(stored) {
-  const s = stored && typeof stored === 'object' ? stored : {}
-  const enc = String(s.encryption || 'starttls')
-  return {
-    host: String(s.host || ''),
-    port: Number.isFinite(Number(s.port)) ? Number(s.port) : 587,
-    encryption: ['ssl', 'starttls', 'none'].includes(enc) ? enc : 'starttls',
-    user: String(s.user || ''),
-    mailFrom: String(s.mailFrom || ''),
-    appName: String(s.appName || ''),
-    authMethodLogin: Boolean(s.authMethodLogin),
-    hasPassword: Boolean(s.password && String(s.password).length > 0),
-  }
-}
-
-function createMailTransportFromStored(stored) {
-  if (!stored || !(String(stored.host || '').trim())) return null
-  const port = Number(stored.port || 587)
-  const enc = String(stored.encryption || 'starttls')
-  const user = String(stored.user || '').trim()
-  const pass = String(stored.password || '')
-  const useAuth = Boolean(user || pass)
-  const auth = useAuth
-    ? {
-        ...(user ? { user } : {}),
-        ...(pass ? { pass } : {}),
-      }
-    : undefined
-  const opts = {
-    host: String(stored.host).trim(),
-    port,
-    auth,
-  }
-  if (enc === 'ssl') {
-    opts.secure = true
-  } else if (enc === 'starttls') {
-    opts.secure = false
-    opts.requireTLS = true
-  } else {
-    opts.secure = false
-  }
-  if (stored.authMethodLogin) opts.authMethod = 'LOGIN'
-  return nodemailer.createTransport(opts)
-}
-
-function createMailTransportFromEnv() {
-  const host = (process.env.SMTP_HOST || '').trim()
-  if (!host) return null
-  const port = Number(process.env.SMTP_PORT || 587)
-  const secure = String(process.env.SMTP_SECURE || '').toLowerCase() === 'true'
-  const user = (process.env.SMTP_USER || '').trim()
-  const pass = process.env.SMTP_PASS || ''
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: user ? { user, pass } : undefined,
-  })
-}
-
-function mailFromString(meta) {
-  const override = (process.env.MAIL_FROM || '').trim()
-  if (override) return override
-  const addr = meta && typeof meta.senderAddress === 'string' ? meta.senderAddress.trim() : ''
-  if (addr) {
-    const name = meta && typeof meta.senderName === 'string' ? meta.senderName.trim() : ''
-    return name ? `${name} <${addr}>` : addr
-  }
-  return (process.env.SMTP_USER || 'noreply@localhost').trim()
-}
-
-async function fetchPocketBaseAppSettings(adminToken) {
-  if (!POCKETBASE_URL || !adminToken) return null
-  try {
-    const res = await fetch(`${POCKETBASE_URL}/api/settings`, {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    })
-    if (!res.ok) return null
-    return await res.json()
-  } catch {
-    return null
-  }
-}
-
-/**
- * Einladungs-Mail: .env (SMTP_HOST) > data/mail-settings.json > PocketBase GET /api/settings + SMTP_PASS in .env.
- */
-async function resolveInviteMail(adminToken) {
-  const defaultAppName = (process.env.APP_NAME || 'Inventur').trim()
-
-  const fromEnv = createMailTransportFromEnv()
-  if (fromEnv) {
-    return { transport: fromEnv, from: mailFromString(null), source: 'env', appName: defaultAppName }
-  }
-
-  const stored = loadMailSettings()
-  const fromFile = createMailTransportFromStored(stored)
-  if (fromFile) {
-    const from = String(stored.mailFrom || '').trim() || mailFromString(null)
-    const appName = String(stored.appName || '').trim() || defaultAppName
-    return { transport: fromFile, from, source: 'file', appName }
-  }
-
-  const settings = await fetchPocketBaseAppSettings(adminToken)
-  const smtp = settings?.smtp
-  if (!smtp?.enabled || !(String(smtp.host || '').trim())) {
-    return null
-  }
-
-  const pass = String(process.env.SMTP_PASS ?? process.env.SMTP_PASSWORD ?? '').trim()
-  const user = String(smtp.username || '').trim()
-  if (user && !pass) {
-    console.warn(
-      'PocketBase SMTP ist aktiv, aber SMTP_PASS/SMTP_PASSWORD fehlt in .env (Passwort gibt die PB-API nicht aus).'
-    )
-    return null
-  }
-
-  const portNum = Number(smtp.port || 587)
-  const useAuth = Boolean(user || pass)
-  const auth = useAuth
-    ? {
-        ...(user ? { user } : {}),
-        ...(pass ? { pass } : {}),
-      }
-    : undefined
-
-  const transport = nodemailer.createTransport({
-    host: String(smtp.host).trim(),
-    port: portNum,
-    secure: portNum === 465,
-    auth,
-    ...(String(smtp.authMethod || '').toUpperCase() === 'LOGIN' ? { authMethod: 'LOGIN' } : {}),
-    ...(smtp.tls && portNum !== 465 ? { requireTLS: true } : {}),
-  })
-
-  return {
-    transport,
-    from: mailFromString(settings?.meta),
-    source: 'pocketbase',
-    appName: defaultAppName,
-  }
-}
 
 function randomInviteTokenHex() {
   return crypto.randomBytes(32).toString('hex')
@@ -463,6 +294,8 @@ function mapPbUser(record) {
     emailConfirmed: Boolean(record.confirmed ?? record.verified),
     role,
     isAdmin: recordCanManageUsers(record),
+    lastActiveAt:
+      record.last_active_at != null && record.last_active_at !== '' ? String(record.last_active_at) : null,
     createdAt: record.created || record.createdAt,
   }
 }
@@ -745,7 +578,7 @@ app.post('/api/invite/accept', async (req, res) => {
 })
 
 /**
- * Einladung anlegen + E-Mail mit Link (SMTP über .env: SMTP_HOST, MAIL_FROM, …).
+ * Einladung anlegen; E-Mail sendet PocketBase Hook pb_hooks/invites.pb.js bei Record-Create auf user_invites.
  * Auth: PocketBase-Nutzer mit Admin-Rechten (manageUsers).
  */
 app.post('/api/invite/send', async (req, res) => {
@@ -825,183 +658,12 @@ app.post('/api/invite/send', async (req, res) => {
     return res.status(502).json({ error: 'PocketBase nicht erreichbar.' })
   }
 
-  const base = appBaseUrl.replace(/\/$/, '')
-  const join = base.includes('?') ? '&' : '?'
-  const inviteUrl = `${base}${join}invite=${encodeURIComponent(token)}`
-
-  const mailCtx = await resolveInviteMail(pocketbaseAdminToken)
-  if (!mailCtx?.transport) {
-    console.info(
-      'invite/send: Kein SMTP (.env, data/mail-settings.json oder PB+SMTP_PASS) – Einladung angelegt; Link teilen oder „Link kopieren“.'
-    )
-    return res.status(201).json({
-      ok: true,
-      email,
-      expires_at: expires,
-      mailSent: false,
-      inviteUrl,
-    })
-  }
-
-  const { transport, from, appName: ctxAppName } = mailCtx
-  const appName = ctxAppName || (process.env.APP_NAME || 'Inventur').trim()
-
-  try {
-    await transport.sendMail({
-      from,
-      to: email,
-      subject: `Einladung: ${appName}`,
-      text: `Sie wurden zu ${appName} eingeladen.\n\nÖffnen Sie den Link, um Ihr Konto mit einem Passwort anzulegen. Der Link ist ${validDays} Tag(e) gültig (nur für diese Einladung):\n\n${inviteUrl}\n\nWenn Sie diese Einladung nicht erwartet haben, ignorieren Sie die E-Mail.`,
-      html: `<p>Sie wurden zu <strong>${appName}</strong> eingeladen.</p><p>Öffnen Sie den Link, um Ihr Konto mit einem Passwort anzulegen. Die <strong>${validDays} Tag(e)</strong> Gültigkeit bezieht sich nur auf diese Einladung (nicht auf das spätere Nutzerkonto):</p><p><a href="${inviteUrl}">${inviteUrl}</a></p><p style="color:#64748b;font-size:0.9em">Wenn Sie diese Einladung nicht erwartet haben, ignorieren Sie die E-Mail.</p>`,
-    })
-  } catch (e) {
-    if (inviteId) {
-      try {
-        await fetch(`${POCKETBASE_URL}/api/collections/${PB_INVITES_COLLECTION}/records/${inviteId}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${pocketbaseAdminToken}` },
-        })
-      } catch {
-        /* */
-      }
-    }
-    console.error('invite/send mail:', e.message)
-    return res.status(502).json({
-      error: `E-Mail konnte nicht versendet werden: ${e.message || 'Unbekannter Fehler'}`,
-    })
-  }
-
-  return res.status(201).json({ ok: true, email, expires_at: expires, mailSent: true })
-})
-
-app.get('/api/mail-settings', async (req, res) => {
-  const pbCheck = await requirePocketBase()
-  if (!pbCheck.ok) {
-    return res.status(pbCheck.status).json({ error: pbCheck.error })
-  }
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || req.headers['x-auth-token']
-  const user = await resolveActorForUserManagement(token)
-  if (!user) {
-    return res.status(401).json({ error: 'Nicht angemeldet.' })
-  }
-  if (!recordCanManageUsers(user)) {
-    return res.status(403).json({ error: 'Nur Administratoren haben Zugriff.' })
-  }
-  const envOverrides = Boolean((process.env.SMTP_HOST || '').trim())
-  const stored = loadMailSettings()
-  const hasFile = Boolean(String(stored.host || '').trim())
-  res.json({
-    envOverrides,
-    activeSource: envOverrides ? 'env' : hasFile ? 'file' : 'none',
-    ...toPublicMailSettings(stored),
+  return res.status(201).json({
+    ok: true,
+    email,
+    expires_at: expires,
+    mailSent: true,
   })
-})
-
-app.put('/api/mail-settings', async (req, res) => {
-  const pbCheck = await requirePocketBase()
-  if (!pbCheck.ok) {
-    return res.status(pbCheck.status).json({ error: pbCheck.error })
-  }
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || req.headers['x-auth-token']
-  const user = await resolveActorForUserManagement(token)
-  if (!user) {
-    return res.status(401).json({ error: 'Nicht angemeldet.' })
-  }
-  if (!recordCanManageUsers(user)) {
-    return res.status(403).json({ error: 'Nur Administratoren haben Zugriff.' })
-  }
-
-  const prev = loadMailSettings()
-  const body = req.body && typeof req.body === 'object' ? req.body : {}
-  const hostIn = body.host !== undefined ? String(body.host).trim() : String(prev.host || '').trim()
-
-  if (!hostIn) {
-    try {
-      if (fs.existsSync(MAIL_SETTINGS_FILE)) fs.unlinkSync(MAIL_SETTINGS_FILE)
-    } catch {
-      /* */
-    }
-    return res.json({
-      envOverrides: Boolean((process.env.SMTP_HOST || '').trim()),
-      activeSource: Boolean((process.env.SMTP_HOST || '').trim()) ? 'env' : 'none',
-      ...toPublicMailSettings({}),
-    })
-  }
-
-  const portNum = Math.min(65535, Math.max(1, Number(body.port !== undefined ? body.port : prev.port || 587) || 587))
-  const encRaw = body.encryption !== undefined ? String(body.encryption) : String(prev.encryption || 'starttls')
-  const encryption = ['ssl', 'starttls', 'none'].includes(encRaw) ? encRaw : 'starttls'
-
-  const next = {
-    host: hostIn,
-    port: portNum,
-    encryption,
-    user: body.user !== undefined ? String(body.user).trim() : String(prev.user || ''),
-    mailFrom: body.mailFrom !== undefined ? String(body.mailFrom).trim() : String(prev.mailFrom || ''),
-    appName: body.appName !== undefined ? String(body.appName).trim() : String(prev.appName || ''),
-    authMethodLogin:
-      body.authMethodLogin !== undefined ? Boolean(body.authMethodLogin) : Boolean(prev.authMethodLogin),
-    password: prev.password,
-  }
-
-  const pwIn = body.password !== undefined ? String(body.password) : ''
-  if (pwIn.length > 0) {
-    next.password = pwIn
-  }
-
-  saveMailSettings(next)
-  const envOv = Boolean((process.env.SMTP_HOST || '').trim())
-  res.json({
-    envOverrides: envOv,
-    activeSource: envOv ? 'env' : 'file',
-    ...toPublicMailSettings(next),
-  })
-})
-
-app.post('/api/mail-settings/test', async (req, res) => {
-  const pbCheck = await requirePocketBase()
-  if (!pbCheck.ok) {
-    return res.status(pbCheck.status).json({ error: pbCheck.error })
-  }
-  const token = req.headers.authorization?.replace(/^Bearer\s+/i, '') || req.headers['x-auth-token']
-  const user = await resolveActorForUserManagement(token)
-  if (!user) {
-    return res.status(401).json({ error: 'Nicht angemeldet.' })
-  }
-  if (!recordCanManageUsers(user)) {
-    return res.status(403).json({ error: 'Nur Administratoren haben Zugriff.' })
-  }
-
-  const to = String(req.body?.to ?? '')
-    .trim()
-    .toLowerCase()
-  if (!to || !to.includes('@')) {
-    return res.status(400).json({ error: 'Gültige Empfänger-E-Mail fehlt.' })
-  }
-
-  const mailCtx = await resolveInviteMail(pocketbaseAdminToken)
-  if (!mailCtx?.transport) {
-    return res.status(503).json({
-      error:
-        'Kein Versand möglich. Prüfe .env (SMTP_HOST), gespeicherte SMTP-Daten oder PocketBase-Mail + SMTP_PASS.',
-    })
-  }
-
-  const appName = mailCtx.appName || (process.env.APP_NAME || 'Inventur').trim()
-  try {
-    await mailCtx.transport.sendMail({
-      from: mailCtx.from,
-      to,
-      subject: `Testmail: ${appName}`,
-      text: `Dies ist eine Testmail von ${appName}. Wenn Sie diese Nachricht sehen, ist der SMTP-Versand in Ordnung.`,
-      html: `<p>Dies ist eine <strong>Testmail</strong> von ${appName}.</p><p>Wenn Sie diese Nachricht sehen, ist der SMTP-Versand in Ordnung.</p>`,
-    })
-  } catch (e) {
-    console.error('mail-settings/test:', e.message)
-    return res.status(502).json({ error: e.message || 'Versand fehlgeschlagen.' })
-  }
-
-  res.json({ ok: true })
 })
 
 // PocketBase-Proxy (Frontend spricht mit PocketBase unter /api/pb)
@@ -1646,22 +1308,5 @@ httpServer.listen(port, () => {
     console.log(`Server-Control: ${urlScheme}://localhost:${port}/server.html`)
   } else {
     console.log('Hinweis: "npm run build" ausführen, dann "npm start" – dann läuft alles unter einer Adresse.')
-  }
-  const smtpHost = (process.env.SMTP_HOST || '').trim()
-  const smtpPassOnly = Boolean(
-    (process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '').trim()
-  )
-  const storedMail = loadMailSettings()
-  const hasFileSmtp = Boolean(String(storedMail.host || '').trim())
-  if (smtpHost) {
-    console.log('SMTP: Einladungen über .env (SMTP_HOST …).')
-  } else if (hasFileSmtp) {
-    console.log('SMTP: Einladungen über data/mail-settings.json (Admin-Seite E-Mail).')
-  } else if (smtpPassOnly) {
-    console.log('SMTP: Einladungen über PocketBase Mail-Settings + SMTP_PASS/SMTP_PASSWORD in .env.')
-  } else {
-    console.warn(
-      'Einladungs-E-Mail: Setze SMTP in .env, unter „E-Mail (SMTP)“ speichern, oder PB+SMTP_PASS. Sonst nur Link in der App.'
-    )
   }
 })

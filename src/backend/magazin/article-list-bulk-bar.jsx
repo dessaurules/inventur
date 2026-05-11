@@ -9,6 +9,7 @@ import { cn } from '../../lib/cn.js'
  * @param {(cat: string) => void} props.onSetCategory
  * @param {() => void} props.onDuplicate
  * @param {() => void} props.onDelete
+ * @param {boolean} [props.removeDisabled]
  * @param {() => void} props.onClear
  */
 export function ArticleListBulkBar({
@@ -17,9 +18,10 @@ export function ArticleListBulkBar({
   onSetCategory,
   onDuplicate,
   onDelete,
+  removeDisabled,
   onClear,
 }) {
-  if (count <= 0 || true) return null
+  if (count <= 0) return null
   return (
     <div
       role="region"
@@ -65,9 +67,10 @@ export function ArticleListBulkBar({
       </button>
       <button
         type="button"
+        disabled={removeDisabled}
         className={cn(
           'inline-flex h-8 items-center gap-1 rounded-md border border-destructive/40 px-2 text-[12.5px] text-destructive',
-          'hover:bg-destructive/10'
+          'hover:bg-destructive/10 disabled:opacity-40'
         )}
         onClick={onDelete}
       >

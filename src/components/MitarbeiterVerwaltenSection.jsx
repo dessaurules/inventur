@@ -16,6 +16,7 @@ import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
 import { APP_ROLES, recordCanManageUsers } from '../lib/userCapabilities'
 import { avatarInitials } from '../lib/avatarInitials'
 import { cn } from '../lib/cn.js'
+import { isUserPresenceOnline, USER_PRESENCE_ONLINE_MS } from '../lib/userPresence.js'
 
 const INV = PB_COLLECTIONS.userInvites
 
@@ -293,6 +294,7 @@ export default function MitarbeiterVerwaltenSection() {
   const [lagerAssignMap, setLagerAssignMap] = useState(/** @type {Record<string, string[]>} */ ({}))
   const [panelUnterSet, setPanelUnterSet] = useState(() => new Set())
   const [assignBusy, setAssignBusy] = useState(false)
+  const [presenceNow, setPresenceNow] = useState(() => Date.now())
 
   const loadUsers = useCallback(async () => {
     if (!pb.authStore.token) {
@@ -398,6 +400,18 @@ export default function MitarbeiterVerwaltenSection() {
   }, [reloadAll])
 
   useEffect(() => {
+    const id = window.setInterval(() => setPresenceNow(Date.now()), 25000)
+    return () => clearInterval(id)
+  }, [])
+
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      void loadUsers().catch(() => {})
+    }, 30000)
+    return () => clearInterval(id)
+  }, [loadUsers])
+
+  useEffect(() => {
     let cancelled = false
     const tid = pb.authStore.model?.tenant_id
     const id = typeof tid === 'string' ? tid : tid?.id
@@ -433,26 +447,26 @@ export default function MitarbeiterVerwaltenSection() {
   const pendingInvites = useMemo(() => invites.filter(isPendingInvite), [invites])
 
   const counts = useMemo(() => {
-    const active = users.filter((u) => u.emailConfirmed).length
-    const inactive = users.filter((u) => !u.emailConfirmed).length
+    const active = users.filter((u) => isUserPresenceOnline(u.lastActiveAt, presenceNow)).length
+    const inactive = users.filter((u) => !isUserPresenceOnline(u.lastActiveAt, presenceNow)).length
     return {
       all: users.length,
       active,
       inactive,
       invites: pendingInvites.length,
     }
-  }, [users, pendingInvites.length])
+  }, [users, pendingInvites.length, presenceNow])
 
   const filteredRows = useMemo(() => {
     if (statusTab === 'invites') {
       return pendingInvites.filter((inv) => inviteMatchesRoleFilter(inv, roleFilter)).map((inv) => ({ kind: 'invite', inv }))
     }
     let list = users
-    if (statusTab === 'active') list = list.filter((u) => u.emailConfirmed)
-    if (statusTab === 'inactive') list = list.filter((u) => !u.emailConfirmed)
+    if (statusTab === 'active') list = list.filter((u) => isUserPresenceOnline(u.lastActiveAt, presenceNow))
+    if (statusTab === 'inactive') list = list.filter((u) => !isUserPresenceOnline(u.lastActiveAt, presenceNow))
     list = list.filter((u) => userMatchesRoleFilter(u, roleFilter))
     return list.map((u) => ({ kind: 'user', u }))
-  }, [users, pendingInvites, statusTab, roleFilter])
+  }, [users, pendingInvites, statusTab, roleFilter, presenceNow])
 
   useEffect(() => {
     if (filteredRows.length === 0) {
@@ -798,6 +812,12 @@ export default function MitarbeiterVerwaltenSection() {
           </h1>
           <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">
             Konten, Rollen und Einladungen für ‚{tenantLabel}‘ pflegen.
+            {' '}
+            <span className="text-[12px] opacity-95">
+              Spalte „Status“: <strong>Aktiv</strong> zeigt geschätztes Online‑Sein (App geöffnet, Aktualisierung ca. alle 45 s;
+              nach {Math.round(USER_PRESENCE_ONLINE_MS / 60000)} Min. ohne Signal = <strong>Inaktiv</strong>).
+              E‑Mail‑Bestätigung („Anmeldung erlaubt“ im Detail).
+            </span>
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
@@ -880,7 +900,12 @@ export default function MitarbeiterVerwaltenSection() {
                   <th className="px-3 py-2.5 font-medium">Name</th>
                   <th className="px-3 py-2.5 font-medium">E-Mail</th>
                   <th className="px-3 py-2.5 font-medium">Rolle</th>
-                  <th className="px-3 py-2.5 font-medium">Status</th>
+                  <th
+                    className="px-3 py-2.5 font-medium"
+                    title={`Online: Signal aus der Inventur/App in den letzten ${Math.round(USER_PRESENCE_ONLINE_MS / 60000)} Min.`}
+                  >
+                    Status
+                  </th>
                   <th className="px-3 py-2.5 font-medium">Lager (Inventur)</th>
                   <th className="w-10 px-2 py-2.5" aria-label="Aktionen" />
                 </tr>
@@ -949,6 +974,7 @@ export default function MitarbeiterVerwaltenSection() {
                   const isSelf = u.id === selfId
                   const dn = displayNameForUser(u)
                   const seed = u.id || u.email
+                  const presenceOnline = isUserPresenceOnline(u.lastActiveAt, presenceNow)
                   return (
                     <tr
                       key={key}
@@ -1021,7 +1047,7 @@ export default function MitarbeiterVerwaltenSection() {
                         </div>
                       </td>
                       <td className="px-3 py-2.5">
-                        {u.emailConfirmed ? (
+                        {presenceOnline ? (
                           <span className="inline-flex h-5 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] font-medium tabular-nums text-emerald-800 dark:text-emerald-200">
                             <span className="h-1 w-1 shrink-0 rounded-full bg-emerald-500" aria-hidden />
                             Aktiv
@@ -1142,7 +1168,7 @@ export default function MitarbeiterVerwaltenSection() {
                 <p className="mt-3 text-base font-semibold text-foreground">{displayNameForUser(selectedUser)}</p>
                 <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">{selectedUser.email}</p>
                 <div className="mt-2 flex justify-center">
-                  {selectedUser.emailConfirmed ? (
+                  {isUserPresenceOnline(selectedUser.lastActiveAt, presenceNow) ? (
                     <span className="inline-flex h-5 items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 text-[11px] font-medium text-emerald-800 dark:text-emerald-200">
                       <span className="h-1 w-1 rounded-full bg-emerald-500" aria-hidden />
                       Aktiv
@@ -1154,6 +1180,9 @@ export default function MitarbeiterVerwaltenSection() {
                     </span>
                   )}
                 </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Letztes App‑Signal: {formatRelativeDe(selectedUser.lastActiveAt)}
+                </p>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
                 <div className="grid grid-cols-[100px_1fr] items-center gap-x-3 gap-y-3">

@@ -9,6 +9,7 @@ import { SidebarCategories } from './sidebar-categories.jsx'
 import { isEditableTarget, useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts.js'
 import { InvoiceImportDialog } from './invoice-import-dialog.jsx'
 import { BulkActionsPanel } from './bulk-actions-panel.jsx'
+import { RemoveArtikelChoiceDialog } from './remove-artikel-choice-dialog.jsx'
 import { artikelMatchesSmartNoCat, mapItemToMagazinArtikel, normalizeStueckProLiefergebinde } from './types.js'
 
 /**
@@ -183,6 +184,7 @@ export function MagazinShell({
   const [invoiceImportRows, setInvoiceImportRows] = useState(/** @type {null | object[]} */ (null))
   const [deleteCategoryTarget, setDeleteCategoryTarget] = useState(/** @type {string | null} */ (null))
   const [invoiceParseWarnings, setInvoiceParseWarnings] = useState(/** @type {string[]} */ ([]))
+  const [bulkRemoveDialogOpen, setBulkRemoveDialogOpen] = useState(false)
 
   useEffect(() => {
     const open = () => setCommandOpen(true)
@@ -499,26 +501,48 @@ export function MagazinShell({
     setSelectedIds(new Set())
   }
 
-  const bulkDelete = async () => {
-    if (!canMutate) return
-    for (const id of selectedIds) {
-      if (onArchiveArtikel) {
-        const r = await onArchiveArtikel(id)
-        if (!r?.ok) {
-          toast.error(r?.message || 'Archivieren fehlgeschlagen.')
-          return
-        }
-      } else if (onDeleteArtikel) {
-        const r = await onDeleteArtikel(id)
-        if (!r?.ok) {
-          toast.error(r?.message || 'Löschen fehlgeschlagen.')
-          return
+  const bulkAllowArchive = Boolean(onArchiveArtikel) && activeSidebar !== '__archived'
+  const bulkAllowPermanent = Boolean(onDeleteArtikel)
+  const bulkRemoveDisabled = !bulkAllowArchive && !bulkAllowPermanent
+
+  useEffect(() => {
+    if (selectedIds.size === 0 && bulkRemoveDialogOpen) setBulkRemoveDialogOpen(false)
+  }, [selectedIds.size, bulkRemoveDialogOpen])
+
+  const bulkRemoveSelected = useCallback(
+    async (mode) => {
+      if (!canMutate) return
+      const ids = [...selectedIds]
+      for (const id of ids) {
+        if (mode === 'archive') {
+          if (!onArchiveArtikel) continue
+          const r = await onArchiveArtikel(id)
+          if (!r?.ok) {
+            toast.error(r?.message || 'Archivieren fehlgeschlagen.')
+            return
+          }
+        } else {
+          if (!onDeleteArtikel) continue
+          const r = await onDeleteArtikel(id)
+          if (!r?.ok) {
+            toast.error(r?.message || 'Löschen fehlgeschlagen.')
+            return
+          }
         }
       }
-    }
-    toast.success('Ausgewählte Artikel entfernt.')
-    setSelectedIds(new Set())
-  }
+      toast.success(
+        mode === 'archive'
+          ? ids.length === 1
+            ? 'Artikel archiviert.'
+            : `${ids.length} Artikel archiviert.`
+          : ids.length === 1
+            ? 'Artikel endgültig gelöscht.'
+            : `${ids.length} Artikel endgültig gelöscht.`
+      )
+      setSelectedIds(new Set())
+    },
+    [canMutate, selectedIds, onArchiveArtikel, onDeleteArtikel]
+  )
 
   const bulkRestore = async () => {
     if (!canMutate || !onUnarchiveArtikel) return
@@ -750,7 +774,8 @@ export function MagazinShell({
               kategorieNames: orderedCategoryNames,
               onSetCategory: (c) => void bulkSetCategory(c),
               onDuplicate: () => void bulkDuplicate(),
-              onDelete: () => void bulkDelete(),
+              onDelete: () => setBulkRemoveDialogOpen(true),
+              removeDisabled: bulkRemoveDisabled,
               onClear: () => setSelectedIds(new Set()),
             }}
           />
@@ -761,7 +786,8 @@ export function MagazinShell({
             kategorieNames={orderedCategoryNames}
             onSetCategory={(c) => bulkSetCategory(c)}
             onDuplicate={() => bulkDuplicate()}
-            onDelete={() => bulkDelete()}
+            onBeginRemove={() => setBulkRemoveDialogOpen(true)}
+            removeDisabled={bulkRemoveDisabled}
             onRestore={activeSidebar === '__archived' && onUnarchiveArtikel ? () => bulkRestore() : undefined}
             onClear={() => setSelectedIds(new Set())}
           />
@@ -779,17 +805,36 @@ export function MagazinShell({
             saveStatus={saveStatus}
             onErrorToast={(msg) => toast.error(msg)}
             onCreated={onCreated}
-            onDelete={async () => {
-              if (!activeMagazin || activeMagazin.id === '__new__') return
-              if (!window.confirm('Diesen Artikel archivieren?')) return
-              if (onArchiveArtikel) {
-                const r = await onArchiveArtikel(activeMagazin.id)
-                if (r?.ok) {
-                  toast.success('Artikel archiviert.')
-                  setActiveArticleId(null)
-                } else toast.error(r?.message || 'Fehler.')
-              }
-            }}
+            articleRemove={
+              canMutate &&
+              activeMagazin &&
+              activeMagazin.id !== '__new__' &&
+              (Boolean(onArchiveArtikel) || Boolean(onDeleteArtikel))
+                ? {
+                    allowArchive: Boolean(onArchiveArtikel) && !activeMagazin.archived,
+                    allowPermanentDelete: Boolean(onDeleteArtikel),
+                    execute: async (mode) => {
+                      const id = activeMagazin.id
+                      if (!id) return
+                      if (mode === 'archive') {
+                        if (!onArchiveArtikel) return
+                        const r = await onArchiveArtikel(id)
+                        if (r?.ok) {
+                          toast.success('Artikel archiviert.')
+                          setActiveArticleId(null)
+                        } else toast.error(r?.message || 'Archivieren fehlgeschlagen.')
+                        return
+                      }
+                      if (!onDeleteArtikel) return
+                      const r = await onDeleteArtikel(id)
+                      if (r?.ok) {
+                        toast.success('Artikel endgültig gelöscht.')
+                        setActiveArticleId(null)
+                      } else toast.error(r?.message || 'Löschen fehlgeschlagen.')
+                    },
+                  }
+                : null
+            }
             onRestore={onUnarchiveArtikel ? async () => {
               if (!activeMagazin || activeMagazin.id === '__new__') return
               const r = await onUnarchiveArtikel(activeMagazin.id)
@@ -876,17 +921,20 @@ export function MagazinShell({
               createIdx += 1
               const lief = String(p.lieferantenArtnr ?? '').trim()
               const artNr = lief || `IMPORT-${Date.now().toString(36)}-${createIdx}`
-              const res = await onCreateArtikel({
-                artikelnummer: artNr.slice(0, 100),
-                name: p.name,
-                preis: p.preis,
-                einheit: 'Stk',
-                category: '',
-                lagerId: '',
-                unterlagerId: '',
-                stueckProLiefergebinde: p.stueckProLiefergebinde,
-                lieferantenArtnr: lief,
-              })
+              const res = await onCreateArtikel(
+                {
+                  artikelnummer: artNr.slice(0, 100),
+                  name: p.name,
+                  preis: p.preis,
+                  einheit: 'Stk',
+                  category: '',
+                  lagerId: '',
+                  unterlagerId: '',
+                  stueckProLiefergebinde: p.stueckProLiefergebinde,
+                  lieferantenArtnr: lief,
+                },
+                { skipDuplicateConfirm: true }
+              )
               if (res?.ok) ok += 1
               else fail += 1
             }
@@ -911,6 +959,16 @@ export function MagazinShell({
         onNewArticle={() => setActiveArticleId('__new__')}
         onExcelImport={() => excelRef.current?.click()}
         onExport={() => toast.message('Export ist noch nicht angebunden.')}
+      />
+      <RemoveArtikelChoiceDialog
+        open={bulkRemoveDialogOpen && canMutate && selectedIds.size > 0}
+        onOpenChange={setBulkRemoveDialogOpen}
+        count={selectedIds.size}
+        allowArchive={bulkAllowArchive}
+        allowPermanentDelete={bulkAllowPermanent}
+        onApply={async (mode) => {
+          await bulkRemoveSelected(mode)
+        }}
       />
       {deleteCategoryTarget && (
         <DeleteCategoryDialog
