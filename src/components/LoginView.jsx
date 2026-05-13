@@ -2,7 +2,28 @@ import { useCallback, useEffect, useState } from 'react'
 import { mapPbRecordToUser, pb } from '../lib/pocketbase'
 import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage'
-import { loginWithMFA } from '../lib/auth.js'
+import { loginWithGoogle, loginWithMFA } from '../lib/auth.js'
+import { cn } from '../lib/cn.js'
+import {
+  authAlertDestructive,
+  authAlertMuted,
+  authButtonLink,
+  authButtonOutline,
+  authButtonPrimary,
+  authCardClass,
+  authCardDescription,
+  authCardSection,
+  authCardTitle,
+  authFieldGroup,
+  authFormClass,
+  authInlineCode,
+  authInputClass,
+  authLabelClass,
+  authMutedLink,
+  authPageShell,
+  authTabsListClass,
+  authTabsTriggerCn,
+} from '../lib/authUi.js'
 import { MfaModal } from './MfaModal.jsx'
 
 const USERS = PB_COLLECTIONS.users
@@ -226,247 +247,319 @@ function LoginView() {
     setBusy(false)
   }
 
+  const panelSwitch = (next) => {
+    setPanel(next)
+    setError('')
+    setInfo('')
+  }
+
   return (
-    <div className="auth-page">
-      <section className="auth-card" aria-labelledby="auth-title">
-        <h1 id="auth-title" className="auth-title">
-          Inventur Login
-        </h1>
-        <p className="auth-lead">Melde dich mit deinem PocketBase-Benutzer an.</p>
+    <div className={authPageShell}>
+      <section className={authCardClass} aria-labelledby="auth-title">
+        <div className={authCardSection}>
+          <div className="flex flex-col gap-1.5">
+            <h1 id="auth-title" className={authCardTitle}>
+              Vibe Inventur
+            </h1>
+            <p className={authCardDescription}>Melde dich mit deinem Konto an.</p>
+          </div>
 
-        <div className="auth-tabs" role="tablist" aria-label="Anmeldeoptionen">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={panel === 'login'}
-            className={`auth-tab${panel === 'login' ? ' auth-tab--active' : ''}`}
-            onClick={() => {
-              setPanel('login')
-              setError('')
-              setInfo('')
-            }}
-          >
-            Anmelden
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={panel === 'invite'}
-            className={`auth-tab${panel === 'invite' ? ' auth-tab--active' : ''}`}
-            onClick={() => {
-              setPanel('invite')
-              setError('')
-              setInfo('')
-            }}
-          >
-            Einladung
-          </button>
-        </div>
-
-        {panel === 'login' && !mfaState ? (
-          <form className="auth-form" onSubmit={handleLoginSubmit}>
-            <label htmlFor="login-email">E-Mail</label>
-            <input
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-
-            <label htmlFor="login-password">Passwort</label>
-            <input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-
-            {error ? (
-              <p className="auth-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-            {info ? (
-              <p className="auth-info" role="status">
-                {info}
-              </p>
-            ) : null}
-
-            <button type="submit" className="auth-submit" disabled={busy}>
-              {busy ? 'Anmelden …' : 'Anmelden'}
+          <div className={authTabsListClass} role="tablist" aria-label="Anmeldeoptionen">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panel === 'login'}
+              className={authTabsTriggerCn(panel === 'login')}
+              onClick={() => panelSwitch('login')}
+            >
+              Anmelden
             </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={panel === 'invite'}
+              className={authTabsTriggerCn(panel === 'invite')}
+              onClick={() => panelSwitch('invite')}
+            >
+              Einladung
+            </button>
+          </div>
 
-            <div className="auth-secondary-actions">
-              <button type="button" className="auth-linkish" onClick={() => setPanel('forgot')}>
-                Passwort vergessen?
+          {panel === 'login' && !mfaState ? (
+            <form className={authFormClass} onSubmit={handleLoginSubmit}>
+              <div className={authFieldGroup}>
+                <label htmlFor="login-email" className={authLabelClass}>
+                  E-Mail
+                </label>
+                <input
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={authInputClass}
+                  required
+                />
+              </div>
+
+              <div className={authFieldGroup}>
+                <label htmlFor="login-password" className={authLabelClass}>
+                  Passwort
+                </label>
+                <input
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={authInputClass}
+                  required
+                />
+              </div>
+
+              {error ? (
+                <p className={authAlertDestructive} role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {info ? (
+                <p className={authAlertMuted} role="status">
+                  {info}
+                </p>
+              ) : null}
+
+              <button type="submit" className={authButtonPrimary} disabled={busy}>
+                {busy ? 'Anmelden …' : 'Anmelden'}
               </button>
-              <button type="button" className="auth-linkish" onClick={handleResendVerification} disabled={busy}>
-                Bestätigungsmail erneut senden
+
+              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+                <button type="button" className={authButtonLink} onClick={() => panelSwitch('forgot')}>
+                  Passwort vergessen?
+                </button>
+                <button
+                  type="button"
+                  className={authButtonLink}
+                  onClick={() => void handleResendVerification()}
+                  disabled={busy}
+                >
+                  Bestätigungsmail erneut senden
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {panel === 'login' && !mfaState ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />
+                oder
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <button
+                type="button"
+                className={authButtonOutline}
+                disabled={busy}
+                onClick={async () => {
+                  setError('')
+                  setBusy(true)
+                  try {
+                    await loginWithGoogle()
+                  } catch (e) {
+                    setError(pocketBaseFullErrorMessage(e))
+                  }
+                  setBusy(false)
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 256 262" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                  <path fill="#4285F4" d="M255.9 133.5c0-10.8-.9-18.6-2.8-26.7H130.6v48.4h71.9a64 64 0 0 1-26.7 42.4l41.2 32c24.7-22.8 38.9-56.3 38.9-96.1"/>
+                  <path fill="#34A853" d="M130.6 261.1c35.2 0 64.8-11.6 86.4-31.6l-41.2-32a76 76 0 0 1-45.2 13.1 79 79 0 0 1-74.3-54.2L15 188l-.6 1.5A131 131 0 0 0 130.6 261"/>
+                  <path fill="#FBBC05" d="M56.3 156.4a80 80 0 0 1 0-51.7V103L15.3 71.3A131 131 0 0 0 14 131a131 131 0 0 0 1.3 57.3z"/>
+                  <path fill="#EA4335" d="M130.6 50.5c24.5 0 41 10.6 50.4 19.4L218 34C195.2 13 165.8 0 130.6 0 79.5 0 35.4 29.3 13.9 72l42.2 32.7a79 79 0 0 1 74.5-54.2"/>
+                </svg>
+                Mit Google anmelden
               </button>
             </div>
-          </form>
-        ) : null}
+          ) : null}
 
-        {panel === 'forgot' ? (
-          <form className="auth-form" onSubmit={handleForgotSubmit}>
-            <p className="auth-lead auth-lead--tight">Passwort zurücksetzen: Link per E-Mail (PocketBase SMTP).</p>
-            <label htmlFor="forgot-email">E-Mail</label>
-            <input
-              id="forgot-email"
-              type="email"
-              autoComplete="email"
-              value={forgotEmail}
-              onChange={(e) => setForgotEmail(e.target.value)}
-              required
-            />
-            {error ? (
-              <p className="auth-error" role="alert">
-                {error}
+          {panel === 'forgot' ? (
+            <form className={authFormClass} onSubmit={handleForgotSubmit}>
+              <p className={authCardDescription}>
+                Passwort zurücksetzen: Link per E-Mail (PocketBase SMTP).
               </p>
-            ) : null}
-            {info ? (
-              <p className="auth-info" role="status">
-                {info}
-              </p>
-            ) : null}
-            <button type="submit" className="auth-submit" disabled={busy}>
-              {busy ? 'Senden …' : 'Link anfordern'}
-            </button>
-            <button
-              type="button"
-              className="auth-linkish auth-linkish--block"
-              onClick={() => {
-                setPanel('login')
-                setError('')
-              }}
-            >
-              Zurück zur Anmeldung
-            </button>
-          </form>
-        ) : null}
+              <div className={authFieldGroup}>
+                <label htmlFor="forgot-email" className={authLabelClass}>
+                  E-Mail
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  autoComplete="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className={authInputClass}
+                  required
+                />
+              </div>
+              {error ? (
+                <p className={authAlertDestructive} role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {info ? (
+                <p className={authAlertMuted} role="status">
+                  {info}
+                </p>
+              ) : null}
+              <button type="submit" className={authButtonPrimary} disabled={busy}>
+                {busy ? 'Senden …' : 'Link anfordern'}
+              </button>
+              <button
+                type="button"
+                className={cn(authMutedLink, 'w-full text-center')}
+                onClick={() => panelSwitch('login')}
+              >
+                Zurück zur Anmeldung
+              </button>
+            </form>
+          ) : null}
 
-        {panel === 'reset' ? (
-          <form className="auth-form" onSubmit={handleResetSubmit}>
-            <p className="auth-lead auth-lead--tight">Neues Passwort setzen (Link aus der E-Mail).</p>
+          {panel === 'reset' ? (
+            <form className={authFormClass} onSubmit={handleResetSubmit}>
+              <p className={authCardDescription}>Neues Passwort setzen (Link aus der E-Mail).</p>
             {!resetToken ? (
-              <p className="auth-error" role="alert">
-                Kein Reset-Token in der URL. Bitte Link aus der PocketBase-Mail verwenden oder in den
-                E-Mail-Templates die App-URL mit Parameter <code className="auth-code">pb_reset_token</code>{' '}
-                konfigurieren (siehe pocketbase/ANLEITUNG_AUTH_INVITES_MFA.md).
-              </p>
+              <div className={authAlertDestructive} role="alert">
+                Kein Reset-Token in der URL. Bitte Link aus der PocketBase-Mail verwenden oder in den E-Mail-Templates die
+                App-URL mit Parameter <code className={authInlineCode}>pb_reset_token</code> konfigurieren (siehe
+                pocketbase/ANLEITUNG_AUTH_INVITES_MFA.md).
+              </div>
             ) : null}
-            <label htmlFor="reset-pass">Neues Passwort</label>
-            <input
-              id="reset-pass"
-              type="password"
-              autoComplete="new-password"
-              value={resetPass}
-              onChange={(e) => setResetPass(e.target.value)}
-              required
-              minLength={8}
-            />
-            <label htmlFor="reset-pass2">Passwort wiederholen</label>
-            <input
-              id="reset-pass2"
-              type="password"
-              autoComplete="new-password"
-              value={resetPass2}
-              onChange={(e) => setResetPass2(e.target.value)}
-              required
-              minLength={8}
-            />
-            {error ? (
-              <p className="auth-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-            {info ? (
-              <p className="auth-info" role="status">
-                {info}
-              </p>
-            ) : null}
-            <button type="submit" className="auth-submit" disabled={busy || !resetToken}>
-              {busy ? 'Speichern …' : 'Passwort speichern'}
-            </button>
-            <button
-              type="button"
-              className="auth-linkish auth-linkish--block"
-              onClick={() => {
-                setPanel('login')
-                setError('')
-              }}
-            >
-              Zurück zur Anmeldung
-            </button>
-          </form>
-        ) : null}
+              <div className={authFieldGroup}>
+                <label htmlFor="reset-pass" className={authLabelClass}>
+                  Neues Passwort
+                </label>
+                <input
+                  id="reset-pass"
+                  type="password"
+                  autoComplete="new-password"
+                  value={resetPass}
+                  onChange={(e) => setResetPass(e.target.value)}
+                  className={authInputClass}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div className={authFieldGroup}>
+                <label htmlFor="reset-pass2" className={authLabelClass}>
+                  Passwort wiederholen
+                </label>
+                <input
+                  id="reset-pass2"
+                  type="password"
+                  autoComplete="new-password"
+                  value={resetPass2}
+                  onChange={(e) => setResetPass2(e.target.value)}
+                  className={authInputClass}
+                  required
+                  minLength={8}
+                />
+              </div>
+              {error ? (
+                <p className={authAlertDestructive} role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {info ? (
+                <p className={authAlertMuted} role="status">
+                  {info}
+                </p>
+              ) : null}
+              <button type="submit" className={authButtonPrimary} disabled={busy || !resetToken}>
+                {busy ? 'Speichern …' : 'Passwort speichern'}
+              </button>
+              <button
+                type="button"
+                className={cn(authMutedLink, 'w-full text-center')}
+                onClick={() => panelSwitch('login')}
+              >
+                Zurück zur Anmeldung
+              </button>
+            </form>
+          ) : null}
 
-        {panel === 'invite' ? (
-          <form className="auth-form" onSubmit={handleInviteSubmit}>
-            <p className="auth-lead auth-lead--tight">
-              Einladung annehmen und Passwort festlegen. Dafür muss{' '}
-              <code className="auth-code">npm run server</code> mit gültigem PocketBase-Superuser laufen
-              (siehe Anleitung).
-            </p>
-            <label htmlFor="invite-token">Einladungs-Token (oder per Link eingetragen)</label>
-            <input
-              id="invite-token"
-              type="text"
-              autoComplete="off"
-              value={inviteToken}
-              onChange={(e) => setInviteToken(e.target.value.trim())}
-              required
-              minLength={16}
-            />
-            <label htmlFor="invite-pass">Passwort</label>
-            <input
-              id="invite-pass"
-              type="password"
-              autoComplete="new-password"
-              value={invitePass}
-              onChange={(e) => setInvitePass(e.target.value)}
-              required
-              minLength={8}
-            />
-            <label htmlFor="invite-pass2">Passwort wiederholen</label>
-            <input
-              id="invite-pass2"
-              type="password"
-              autoComplete="new-password"
-              value={invitePass2}
-              onChange={(e) => setInvitePass2(e.target.value)}
-              required
-              minLength={8}
-            />
-            {error ? (
-              <p className="auth-error" role="alert">
-                {error}
+          {panel === 'invite' ? (
+            <form className={authFormClass} onSubmit={handleInviteSubmit}>
+              <p className={authCardDescription}>
+                Einladung annehmen und Passwort festlegen. Dafür muss <code className={authInlineCode}>npm run server</code>{' '}
+                mit gültigem PocketBase-Superuser laufen (siehe Anleitung).
               </p>
-            ) : null}
-            {info ? (
-              <p className="auth-info" role="status">
-                {info}
-              </p>
-            ) : null}
-            <button type="submit" className="auth-submit" disabled={busy}>
-              {busy ? 'Konto anlegen …' : 'Konto anlegen'}
-            </button>
-            <button
-              type="button"
-              className="auth-linkish auth-linkish--block"
-              onClick={() => {
-                setPanel('login')
-                setError('')
-              }}
-            >
-              Zurück zur Anmeldung
-            </button>
-          </form>
-        ) : null}
+              <div className={authFieldGroup}>
+                <label htmlFor="invite-token" className={authLabelClass}>
+                  Einladungs-Token (oder per Link eingetragen)
+                </label>
+                <input
+                  id="invite-token"
+                  type="text"
+                  autoComplete="off"
+                  value={inviteToken}
+                  onChange={(e) => setInviteToken(e.target.value.trim())}
+                  className={authInputClass}
+                  required
+                  minLength={16}
+                />
+              </div>
+              <div className={authFieldGroup}>
+                <label htmlFor="invite-pass" className={authLabelClass}>
+                  Passwort
+                </label>
+                <input
+                  id="invite-pass"
+                  type="password"
+                  autoComplete="new-password"
+                  value={invitePass}
+                  onChange={(e) => setInvitePass(e.target.value)}
+                  className={authInputClass}
+                  required
+                  minLength={8}
+                />
+              </div>
+              <div className={authFieldGroup}>
+                <label htmlFor="invite-pass2" className={authLabelClass}>
+                  Passwort wiederholen
+                </label>
+                <input
+                  id="invite-pass2"
+                  type="password"
+                  autoComplete="new-password"
+                  value={invitePass2}
+                  onChange={(e) => setInvitePass2(e.target.value)}
+                  className={authInputClass}
+                  required
+                  minLength={8}
+                />
+              </div>
+              {error ? (
+                <p className={authAlertDestructive} role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {info ? (
+                <p className={authAlertMuted} role="status">
+                  {info}
+                </p>
+              ) : null}
+              <button type="submit" className={authButtonPrimary} disabled={busy}>
+                {busy ? 'Konto anlegen …' : 'Konto anlegen'}
+              </button>
+              <button
+                type="button"
+                className={cn(authMutedLink, 'w-full text-center')}
+                onClick={() => panelSwitch('login')}
+              >
+                Zurück zur Anmeldung
+              </button>
+            </form>
+          ) : null}
+        </div>
       </section>
       {panel === 'login' && mfaState ? (
         <MfaModal

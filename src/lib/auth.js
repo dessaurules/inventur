@@ -11,6 +11,10 @@ import { PB_COLLECTIONS } from './pocketbaseCollections.js'
 
 const USERS = PB_COLLECTIONS.users
 
+export async function loginWithGoogle() {
+  return pb.collection(USERS).authWithOAuth2({ provider: 'google' })
+}
+
 /**
  * @typedef {{ otpId: string, mfaId: string, email: string }} MfaChallengeState
  */
