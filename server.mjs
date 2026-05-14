@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import compression from 'compression'
 import path from 'path'
 import fs from 'fs'
 import crypto from 'crypto'
@@ -341,6 +342,7 @@ async function requirePocketBase() {
   return { ok: true }
 }
 
+app.use(compression())
 app.use(cors())
 
 /**

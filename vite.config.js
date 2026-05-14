@@ -34,6 +34,13 @@ export default defineConfig(({ mode }) => {
           backend: resolve(__dirname, 'backend.html'),
           serverPanel: resolve(__dirname, 'server.html'),
         },
+        output: {
+          manualChunks: {
+            xlsx: ['xlsx'],
+            jspdf: ['jspdf', 'jspdf-autotable'],
+            recharts: ['recharts'],
+          },
+        },
       },
     },
     server: {
