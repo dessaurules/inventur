@@ -39,6 +39,9 @@ export default function AccountSettingsPage({ user }) {
   const [newEmail, setNewEmail] = useState('')
   const [emailSaving, setEmailSaving] = useState(false)
 
+  const [googleLinked, setGoogleLinked] = useState(null)
+  const [googleLinking, setGoogleLinking] = useState(false)
+
   const [imagePreviewUrl, setImagePreviewUrl] = useState(null)
 
   const [feedback, setFeedback] = useState({ type: '', text: '' })
@@ -133,9 +136,44 @@ export default function AccountSettingsPage({ user }) {
     [applyLocalImageFile]
   )
 
+  useEffect(() => {
+    if (!user?.id) return
+    pb.collection(USERS).listExternalAuths(user.id)
+      .then((auths) => setGoogleLinked(auths.some((a) => a.provider === 'google')))
+      .catch(() => setGoogleLinked(false))
+  }, [user?.id])
+
   const refreshAuth = useCallback(async () => {
     await pb.collection(USERS).authRefresh()
   }, [])
+
+  const handleLinkGoogle = async () => {
+    setFeedback({ type: '', text: '' })
+    setGoogleLinking(true)
+    try {
+      await pb.collection(USERS).linkExternalAuth({ provider: 'google' })
+      setGoogleLinked(true)
+      showOk('Google-Konto erfolgreich verknüpft.')
+    } catch (err) {
+      showErr(pocketBaseFullErrorMessage(err))
+    } finally {
+      setGoogleLinking(false)
+    }
+  }
+
+  const handleUnlinkGoogle = async () => {
+    setFeedback({ type: '', text: '' })
+    setGoogleLinking(true)
+    try {
+      await pb.collection(USERS).unlinkExternalAuth(user.id, 'google')
+      setGoogleLinked(false)
+      showOk('Google-Konto getrennt.')
+    } catch (err) {
+      showErr(pocketBaseFullErrorMessage(err))
+    } finally {
+      setGoogleLinking(false)
+    }
+  }
 
   const handleSaveProfile = async (e) => {
     e.preventDefault()
@@ -473,6 +511,37 @@ export default function AccountSettingsPage({ user }) {
               </button>
             </div>
           </form>
+        </section>
+        <section className="account-settings-panel" aria-labelledby="account-google-title">
+          <h3 id="account-google-title" className="account-settings-panel-title">
+            Google-Konto
+          </h3>
+          <p className="account-settings-panel-hint">
+            Mit Google verknüpfen, um dich künftig per Google-Login anzumelden.
+          </p>
+          <div className="account-settings-actions">
+            {googleLinked === null ? (
+              <span className="account-settings-panel-hint">Lade …</span>
+            ) : googleLinked ? (
+              <button
+                type="button"
+                className="account-settings-btn"
+                disabled={googleLinking}
+                onClick={handleUnlinkGoogle}
+              >
+                {googleLinking ? 'Bitte warten …' : 'Google-Konto trennen'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="account-settings-btn account-settings-btn--primary"
+                disabled={googleLinking}
+                onClick={handleLinkGoogle}
+              >
+                {googleLinking ? 'Bitte warten …' : 'Google-Konto verknüpfen'}
+              </button>
+            )}
+          </div>
         </section>
       </div>
     </div>

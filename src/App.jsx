@@ -194,6 +194,23 @@ function artikelnummerFallbackFromBarcode(barcodeRaw) {
   return `BC-${suffix}`
 }
 
+/** Monoton steigender Zähler bei gleicher Date.now()-Millisekunde (Massenimport). */
+let autoArtikelNrLastMs = 0
+let autoArtikelNrSeq = 0
+
+/** PocketBase verlangt min. 1 Zeichen für „artikelnummer“ — Format I-00000 … I-99999. */
+function generateAutoArtikelnummer() {
+  const ms = Date.now()
+  if (ms !== autoArtikelNrLastMs) {
+    autoArtikelNrLastMs = ms
+    autoArtikelNrSeq = 0
+  } else {
+    autoArtikelNrSeq += 1
+  }
+  const n = (ms % 100000 + autoArtikelNrSeq) % 100000
+  return `I-${String(n).padStart(5, '0')}`
+}
+
 function parsePreisInput(raw) {
   const t = String(raw ?? '')
     .trim()
@@ -929,6 +946,10 @@ function App({ countingApp = false } = {}) {
       }
     }
 
+    if (!nrEff) {
+      nrEff = generateAutoArtikelnummer()
+    }
+
     try {
       const pbToken = pb.authStore.token
       if (!pbToken || isTokenExpired(pbToken)) {
@@ -994,7 +1015,7 @@ function App({ countingApp = false } = {}) {
       if (nrErr?.code === 'validation_required') {
         return {
           ok: false,
-          message: `${pocketBaseFullErrorMessage(e)} — Die App sendet beim Anlegen immer eine Artikelnummer (Barcode → BC-…, sonst AUTO-…). PocketBase-Instanz, Collection-Feld „artikelnummer“ und ggf. Hooks prüfen.`,
+          message: `${pocketBaseFullErrorMessage(e)} — Feld „artikelnummer“: bei leerer Eingabe wird I-XXXXX (5 Ziffern) erzeugt. PocketBase-Feld („min“/„required“) und Hooks prüfen.`,
         }
       }
       return { ok: false, message: pocketBaseFullErrorMessage(e) }

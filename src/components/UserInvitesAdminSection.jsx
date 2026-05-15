@@ -143,13 +143,18 @@ export default function UserInvitesAdminSection({ canManageInvites }) {
         Nutzer-Einladungen
       </h3>
       <p className="admin-panel-hint">
-        Versand über Express: SMTP in <code className="auth-code">.env</code> oder PB-Mail +{' '}
-        <code className="auth-code">SMTP_PASS</code>. Ohne SMTP: Eintrag anlegen,{' '}
+        Versand über Express: SMTP in{' '}
+        <code className="rounded-md bg-muted px-1 py-0.5 font-mono text-[0.8125rem]">.env</code> oder PB-Mail +{' '}
+        <code className="rounded-md bg-muted px-1 py-0.5 font-mono text-[0.8125rem]">SMTP_PASS</code>. Ohne SMTP: Eintrag anlegen,{' '}
         <strong>Link kopieren</strong>.
       </p>
       <p className="admin-panel-hint admin-panel-hint--sub">
-        Gültigkeit (Tage) nur für den Link; Konto danach normal. Superuser in <code className="auth-code">.env</code>,{' '}
-        Details: <code className="auth-code">pocketbase/ANLEITUNG_AUTH_INVITES_MFA.md</code>.
+        Gültigkeit (Tage) nur für den Link; Konto danach normal. Superuser in{' '}
+        <code className="rounded-md bg-muted px-1 py-0.5 font-mono text-[0.8125rem]">.env</code>, Details:{' '}
+        <code className="rounded-md bg-muted px-1 py-0.5 font-mono text-[0.8125rem]">
+          pocketbase/ANLEITUNG_AUTH_INVITES_MFA.md
+        </code>
+        .
       </p>
 
       {feedback.text ? (

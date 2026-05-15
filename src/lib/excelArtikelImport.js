@@ -246,7 +246,11 @@ function tryParseStandardSheet(data) {
   }
 
   if (rows.length === 0) {
-    return { ok: false, error: 'Keine Datenzeilen mit Artikelnummer und Name gefunden.' }
+    return {
+      ok: false,
+      error:
+        'Keine gültigen Datenzeilen: mindestens Name und gültigen Preis pro Zeile (Artikelnummer optional).',
+    }
   }
 
   return { ok: true, rows, mappedLabels }

@@ -3,6 +3,18 @@ import { verifyOTP } from '../lib/auth.js'
 import { pb } from '../lib/pocketbase.js'
 import { PB_COLLECTIONS } from '../lib/pocketbaseCollections.js'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage.js'
+import {
+  authAlertDestructive,
+  authButtonLink,
+  authButtonPrimary,
+  authCardTitle,
+  authFieldGroup,
+  authFormClass,
+  authLabelClass,
+  authMutedLink,
+  authOtpInputClass,
+} from '../lib/authUi.js'
+import { cn } from '../lib/cn.js'
 
 const USERS = PB_COLLECTIONS.users
 
@@ -61,62 +73,66 @@ export function MfaModal({ mfaState, onSuccess, onCancel }) {
 
   return (
     <div
-      className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/80 p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="mfa-modal-title"
     >
-      <div className="auth-card relative w-full max-w-md shadow-lg">
-        <h2 id="mfa-modal-title" className="auth-title mb-2">
-          Zweiter Faktor (E-Mail-Code)
-        </h2>
-        <p className="auth-lead auth-lead--tight mb-4">
-          Gib den Einmalcode ein, den wir an <strong>{mfaState.email}</strong> gesendet haben.
-        </p>
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <label htmlFor="mfa-modal-otp">Einmalcode</label>
-          <input
-            id="mfa-modal-otp"
-            type="text"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            maxLength={8}
-            autoFocus
-            value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            required
-          />
-          {error ? (
-            <p className="auth-error" role="alert">
-              {error}
+      <div className="flex w-full max-w-[425px] flex-col gap-6 rounded-xl border border-border bg-background p-6 shadow-lg">
+          <div className="flex flex-col gap-1.5 text-left">
+            <h2 id="mfa-modal-title" className={cn(authCardTitle, 'text-xl')}>
+              Zweiter Faktor (E-Mail-Code)
+            </h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Gib den Einmalcode ein, den wir an <span className="font-medium text-foreground">{mfaState.email}</span>{' '}
+              gesendet haben.
             </p>
-          ) : null}
-          <button
-            type="submit"
-            className="auth-submit"
-            disabled={loading || code.trim().length < 4}
-          >
-            {loading ? 'Prüfen …' : 'Anmelden mit Code'}
-          </button>
-        </form>
-        <div className="auth-secondary-actions mt-4">
-          <button type="button" className="auth-linkish" disabled={loading} onClick={() => void handleResend()}>
-            Code erneut senden
-          </button>
-          <button
-            type="button"
-            className="auth-linkish"
-            disabled={loading}
-            onClick={() => {
-              onCancel()
-              setCode('')
-              setError('')
-            }}
-          >
-            Abbrechen
-          </button>
+          </div>
+          <form className={authFormClass} onSubmit={handleSubmit}>
+            <div className={authFieldGroup}>
+              <label htmlFor="mfa-modal-otp" className={authLabelClass}>
+                Einmalcode
+              </label>
+              <input
+                id="mfa-modal-otp"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={8}
+                autoFocus
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                className={authOtpInputClass}
+                required
+              />
+            </div>
+            {error ? (
+              <p className={authAlertDestructive} role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button type="submit" className={authButtonPrimary} disabled={loading || code.trim().length < 4}>
+              {loading ? 'Prüfen …' : 'Anmelden mit Code'}
+            </button>
+          </form>
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-border pt-4">
+            <button type="button" className={authButtonLink} disabled={loading} onClick={() => void handleResend()}>
+              Code erneut senden
+            </button>
+            <button
+              type="button"
+              className={authMutedLink}
+              disabled={loading}
+              onClick={() => {
+                onCancel()
+                setCode('')
+                setError('')
+              }}
+            >
+              Abbrechen
+            </button>
+          </div>
         </div>
       </div>
-    </div>
   )
 }
