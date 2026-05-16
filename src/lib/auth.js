@@ -12,10 +12,15 @@ import { PB_COLLECTIONS } from './pocketbaseCollections.js'
 const USERS = PB_COLLECTIONS.users
 
 export async function loginWithGoogle() {
+  // Popup synchron öffnen (noch im User-Gesture-Kontext), damit Chrome es nicht blockiert
+  const popup = window.open('about:blank', 'google_oauth', 'width=600,height=700,resizable')
   return pb.collection(USERS).authWithOAuth2({
     provider: 'google',
     urlCallback: (url) => {
-      window.open(url, 'google_oauth', 'width=600,height=700,resizable')
+      // location.href setzen braucht kein User-Gesture – kein Chrome-Blocking
+      if (popup && !popup.closed) {
+        popup.location.href = url
+      }
     },
   })
 }
