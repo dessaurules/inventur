@@ -14,21 +14,32 @@ const USERS = PB_COLLECTIONS.users
 export async function loginWithGoogle() {
   // Popup synchron öffnen (noch im User-Gesture-Kontext), damit Chrome es nicht blockiert
   const popup = window.open('about:blank', 'google_oauth', 'width=600,height=700,resizable')
-  // Sofort Inhalt schreiben – verhindert, dass Chrome das leere Popup schließt oder Navigation blockiert
   if (popup) {
     popup.document.write(
-      '<html><body style="background:#fff;font-family:sans-serif;padding:2rem;text-align:center">' +
+      '<!DOCTYPE html><html><head><meta charset="utf-8"></head>' +
+        '<body style="background:#fff;font-family:sans-serif;padding:2rem;text-align:center">' +
         '<p style="margin-top:3rem;color:#555">Verbinde mit Google…</p>' +
         '</body></html>',
     )
+    popup.document.close()
   }
   return pb.collection(USERS).authWithOAuth2({
     provider: 'google',
     urlCallback: (url) => {
       if (!popup || popup.closed) return
-      // document.write-Skript läuft im Popup-Kontext → kein Cross-Origin-Problem
+      // meta-refresh navigiert ohne Script-Ausführung – zuverlässiger als location.href oder document.write-Script
+      const safeUrl = url.replace(/"/g, '%22')
       popup.document.open()
-      popup.document.write('<script>location.href=' + JSON.stringify(url) + '<\\/script>')
+      popup.document.write(
+        '<!DOCTYPE html><html><head>' +
+          '<meta charset="utf-8">' +
+          '<meta http-equiv="refresh" content="0; url=' + safeUrl + '">' +
+          '</head><body style="background:#fff;font-family:sans-serif;padding:2rem;text-align:center">' +
+          '<p style="margin-top:3rem;color:#555">Weiterleitung zu Google…</p>' +
+          '<p style="font-size:0.85rem;margin-top:1rem">' +
+          '<a href="' + safeUrl + '">Hier klicken falls keine Weiterleitung</a></p>' +
+          '</body></html>',
+      )
       popup.document.close()
     },
   })
