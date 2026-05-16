@@ -14,13 +14,22 @@ const USERS = PB_COLLECTIONS.users
 export async function loginWithGoogle() {
   // Popup synchron öffnen (noch im User-Gesture-Kontext), damit Chrome es nicht blockiert
   const popup = window.open('about:blank', 'google_oauth', 'width=600,height=700,resizable')
+  // Sofort Inhalt schreiben – verhindert, dass Chrome das leere Popup schließt oder Navigation blockiert
+  if (popup) {
+    popup.document.write(
+      '<html><body style="background:#fff;font-family:sans-serif;padding:2rem;text-align:center">' +
+        '<p style="margin-top:3rem;color:#555">Verbinde mit Google…</p>' +
+        '</body></html>',
+    )
+  }
   return pb.collection(USERS).authWithOAuth2({
     provider: 'google',
     urlCallback: (url) => {
-      // location.href setzen braucht kein User-Gesture – kein Chrome-Blocking
-      if (popup && !popup.closed) {
-        popup.location.href = url
-      }
+      if (!popup || popup.closed) return
+      // document.write-Skript läuft im Popup-Kontext → kein Cross-Origin-Problem
+      popup.document.open()
+      popup.document.write('<script>location.href=' + JSON.stringify(url) + '<\\/script>')
+      popup.document.close()
     },
   })
 }
