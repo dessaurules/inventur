@@ -12,13 +12,7 @@ import { PB_COLLECTIONS } from './pocketbaseCollections.js'
 const USERS = PB_COLLECTIONS.users
 
 export async function loginWithGoogle() {
-  return pb.collection(USERS).authWithOAuth2({
-    provider: 'google',
-    urlCallback: (url) => {
-      console.log('[Google OAuth] Popup-URL:', url)
-      window.open(url, 'popup_window', 'width=600,height=700,resizable,menubar=no')
-    },
-  })
+  return pb.collection(USERS).authWithOAuth2({ provider: 'google' })
 }
 
 /**
