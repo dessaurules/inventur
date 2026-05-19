@@ -1,0 +1,25 @@
+---
+description: Dev-Stack (PocketBase, Vite, Express) stoppen und neu starten
+alwaysApply: true
+---
+
+# Dev-Stack neu starten
+
+Wenn der Nutzer alle Server beenden/neu starten will (PocketBase :8090, Vite :5173, Express :3000):
+
+```bash
+npm run dev:restart
+```
+
+Entspricht `scripts/restart-dev-stack.sh`: Ports 3000, 5173, 8090 freimachen (`kill -9`), danach `npm run dev:full`.
+
+Alternativ manuell:
+
+```bash
+for p in 3000 5173 8090; do lsof -ti :$p | xargs kill -9 2>/dev/null; done
+npm run dev:full
+```
+
+Hintergrund-Start im Agent-Terminal: `npm run dev:restart` mit `required_permissions: ["all"]` (Vite braucht Netzwerk-Interfaces ohne Sandbox).
+
+URLs: App http://localhost:5173 · API http://localhost:3000 · PocketBase http://127.0.0.1:8090

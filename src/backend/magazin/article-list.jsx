@@ -2,11 +2,40 @@ import { useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import * as Checkbox from '@radix-ui/react-checkbox'
 import * as Tooltip from '@radix-ui/react-tooltip'
-import { Check, FileSpreadsheet, FileText, Plus } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, FileSpreadsheet, FileText, Plus } from 'lucide-react'
+import { toggleColumnSort } from './article-list-sort.js'
 import { ArticleRow } from './article-row.jsx'
 import { ArticleListToolbar } from './article-list-toolbar.jsx'
 import { ArticleListBulkBar } from './article-list-bulk-bar.jsx'
 import { cn } from '../../lib/cn.js'
+
+/**
+ * @param {object} props
+ * @param {string} props.label
+ * @param {import('./article-list-sort.js').MagazinSortKey} props.column
+ * @param {import('./article-list-sort.js').MagazinSortState} props.sort
+ * @param {(column: import('./article-list-sort.js').MagazinSortKey) => void} props.onColumnSort
+ * @param {string} [props.className]
+ */
+function SortableColumnHeader({ label, column, sort, onColumnSort, className }) {
+  const active = sort.key === column
+  const Icon = sort.dir === 'asc' ? ArrowUp : ArrowDown
+  return (
+    <button
+      type="button"
+      onClick={() => onColumnSort(column)}
+      className={cn(
+        'inline-flex min-w-0 items-center gap-0.5 rounded-sm hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        active ? 'text-foreground' : '',
+        className
+      )}
+      aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}
+    >
+      <span className="truncate">{label}</span>
+      {active ? <Icon className="h-3 w-3 shrink-0 opacity-80" aria-hidden /> : null}
+    </button>
+  )
+}
 
 function SelectAllCheckbox({ total, selected, onSelectAll }) {
   const allSelected = total > 0 && selected === total
@@ -49,8 +78,8 @@ function SelectAllCheckbox({ total, selected, onSelectAll }) {
  * @param {(id: string, selected: boolean, opts?: { shift?: boolean, index?: number }) => void} props.onSelect
  * @param {string} props.query
  * @param {(q: string) => void} props.onQuery
- * @param {'name' | 'nr' | 'updated'} props.sort
- * @param {(s: 'name' | 'nr' | 'updated') => void} props.onSort
+ * @param {import('./article-list-sort.js').MagazinSortState} props.sort
+ * @param {(s: import('./article-list-sort.js').MagazinSortState) => void} props.onSort
  * @param {boolean} props.readOnly
  * @param {() => void} props.onNewArticle
  * @param {() => void} props.onExcelClick
@@ -83,6 +112,10 @@ export function ArticleList({
   const internalRef = useRef(null)
   const scrollRef = scrollParentRef ?? internalRef
   const useVirtual = rows.length > 100
+
+  const onColumnSort = (column) => {
+    onSort(toggleColumnSort(sort, column))
+  }
 
   /* TanStack Virtual: absichtlich nicht memoization-kompatibel (React Compiler). */
   // eslint-disable-next-line react-hooks/incompatible-library -- Virtualisierung bei >100 Zeilen
@@ -186,10 +219,16 @@ export function ArticleList({
             selected={selectedIds.size}
             onSelectAll={onSelectAll}
           />
-          <span>Nr.</span>
-          <span>Name</span>
-          <span className="text-right">Preis</span>
-          <span>Einh.</span>
+          <SortableColumnHeader label="Nr." column="nr" sort={sort} onColumnSort={onColumnSort} />
+          <SortableColumnHeader label="Name" column="name" sort={sort} onColumnSort={onColumnSort} />
+          <SortableColumnHeader
+            label="Preis"
+            column="preis"
+            sort={sort}
+            onColumnSort={onColumnSort}
+            className="ml-auto justify-end"
+          />
+          <SortableColumnHeader label="Einh." column="einheit" sort={sort} onColumnSort={onColumnSort} />
         </div>
         {useVirtual ? (
           <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>

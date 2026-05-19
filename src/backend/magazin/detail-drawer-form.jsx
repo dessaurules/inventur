@@ -12,17 +12,19 @@ function initialFromArtikel(artikel) {
       preisStr: '',
       einheit: 'Stk',
       stueckProLiefStr: '1',
-      lieferantenArtnr: '',
+      artikelnummer: '',
       kategorieId: '',
     }
   }
   const st = normalizeStueckProLiefergebinde(artikel.stueckProLiefergebinde ?? 1)
+  const nr =
+    String(artikel.artikelnummer ?? '').trim() || String(artikel.lieferantenArtnr ?? '').trim()
   return {
     name: artikel.name,
     preisStr: artikel.id === '__new__' ? '' : preisToInputString(artikel.preis),
     einheit: artikel.einheit || 'Stk',
     stueckProLiefStr: String(st),
-    lieferantenArtnr: String(artikel.lieferantenArtnr ?? '').trim(),
+    artikelnummer: nr,
     kategorieId: artikel.kategorieId || '',
   }
 }
@@ -59,7 +61,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
   const [preisStr, setPreisStr] = useState(init.preisStr)
   const [einheit, setEinheit] = useState(init.einheit)
   const [stueckProLiefStr, setStueckProLiefStr] = useState(init.stueckProLiefStr)
-  const [lieferantenArtnr, setLieferantenArtnr] = useState(init.lieferantenArtnr)
+  const [artikelnummer, setArtikelnummer] = useState(init.artikelnummer)
   const [kategorieId, setKategorieId] = useState(init.kategorieId)
 
   const isDraft = artikel?.id === '__new__'
@@ -97,7 +99,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
       return
     }
     const isNew = artikel.id === '__new__'
-    const nr = String(artikel.artikelnummer ?? '').trim()
+    const nr = String(artikelnummer ?? '').trim()
     if (!isNew && !nr) {
       onSaveStatus('error')
       onErrorToast?.('Artikelnummer fehlt.')
@@ -116,13 +118,13 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
           return
         }
         const res = await onCreate({
-          artikelnummer: '',
+          artikelnummer: nr,
           name: nm,
           preis,
           einheit: String(einheit || '').trim() || 'Stk',
           category: String(kategorieId || '').trim(),
           stueckProLiefergebinde: normalizeStueckProLiefergebinde(stueckProLiefStr),
-          lieferantenArtnr: String(lieferantenArtnr ?? '').trim(),
+          lieferantenArtnr: nr,
         })
         if (!res?.ok) {
           onSaveStatus('error')
@@ -142,7 +144,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
         einheit: String(einheit || '').trim() || 'Stk',
         category: String(kategorieId || '').trim(),
         stueckProLiefergebinde: normalizeStueckProLiefergebinde(stueckProLiefStr),
-        lieferantenArtnr: String(lieferantenArtnr ?? '').trim(),
+        lieferantenArtnr: nr,
       })
       if (!res?.ok) {
         onSaveStatus('error')
@@ -161,7 +163,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
     name,
     einheit,
     stueckProLiefStr,
-    lieferantenArtnr,
+    artikelnummer,
     kategorieId,
     onPatch,
     onCreate,
@@ -248,15 +250,15 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
         </label>
       </div>
       <label className="flex flex-col gap-0.5">
-        <span className={labelCls}>Lieferanten-Art.-Nr.</span>
+        <span className={labelCls}>Artikelnummer</span>
         <input
-          className={inputCls}
-          value={lieferantenArtnr}
-          onChange={(e) => setLieferantenArtnr(e.target.value)}
+          className={cn(inputCls, 'font-mono tabular-nums')}
+          value={artikelnummer}
+          onChange={(e) => setArtikelnummer(e.target.value)}
           disabled={readOnly}
-          maxLength={64}
-          placeholder="z. B. 33780"
-          aria-label="Lieferanten-Artikelnummer"
+          maxLength={100}
+          placeholder={isDraft ? 'Leer = automatisch (z. B. I-00042)' : 'z. B. I-52280'}
+          aria-label="Artikelnummer"
         />
       </label>
       <div className="flex gap-2">

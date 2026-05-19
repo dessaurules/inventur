@@ -1,0 +1,24 @@
+---
+description: Inventur-Session Artikelliste (Stack) vs. Karten-Layout — Revert-Anleitung
+alwaysApply: false
+---
+
+# Artikel-Liste in aktiver Zählsession
+
+## Aktuell (Stack-Layout)
+
+- Klasse `article-view--inventur-stack` auf dem Root von `ArticleView.jsx`
+- CSS in `App.css` unter „Inventur-Session: gestapelte Zeilen…“
+- Artikel ohne Karten-Rahmen links/rechts, nur `border-bottom` zwischen Zeilen
+- Zebra: ungerade `--admin-table-zebra-a` (weiß), gerade `--admin-table-zebra-b` (grau) — **kein Hover** (Touch)
+- Innenlayout pro Artikel unverändert (Zeile 1: Name/Preis/Menge, Zeile 2: Buttons)
+- Header unverändert
+
+## Zurück zum Karten-Design (Legacy)
+
+1. In `src/components/ArticleView.jsx` Klasse entfernen:
+   - von `article-view article-view--inventur-stack`
+   - zu `article-view`
+2. Optional: Block in `App.css` löschen oder auskommentieren (ab `.article-view--inventur-stack .article-list` bis `.empty-state` Padding-Regel)
+
+Die Basis-Styles `.article-box` (border, radius, shadow, gap in `.article-list`) bleiben als Legacy erhalten und greifen wieder, sobald `--inventur-stack` fehlt.

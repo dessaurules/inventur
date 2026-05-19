@@ -302,6 +302,14 @@ const ArticleView = forwardRef(function ArticleView(
     }
   }, [scrollFocusArticleId, itemIdsKey, searchNorm, selectedCategory])
 
+  const prevSelectedCategoryRef = useRef(selectedCategory)
+  useEffect(() => {
+    if (!countingApp || !activeZaehlSessionId || scrollFocusArticleId) return
+    if (prevSelectedCategoryRef.current === selectedCategory) return
+    prevSelectedCategoryRef.current = selectedCategory
+    window.scrollTo(0, 0)
+  }, [selectedCategory, countingApp, activeZaehlSessionId, scrollFocusArticleId])
+
   const canCount = Boolean(activeZaehlSessionId)
   const onlyLocalArtikel =
     canCount &&
@@ -309,7 +317,7 @@ const ArticleView = forwardRef(function ArticleView(
     items.every((it) => !it.id || String(it.id).startsWith('local-'))
 
   return (
-    <div className="article-view">
+    <div className="article-view article-view--inventur-stack">
       {onlyLocalArtikel ? (
         <p className="session-message session-message--info" role="status">
           Nur Artikel aus PocketBase werden in „zaehlung_aktuell“ gespeichert. Im Magazin angelegte

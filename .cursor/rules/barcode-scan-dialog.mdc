@@ -1,0 +1,20 @@
+---
+description: Barcode-Dialog (shadcn) — Revert zur Legacy-UI
+alwaysApply: false
+---
+
+# Barcode-Dialog (shadcn)
+
+## Aktuell
+
+- Komponente: `src/components/BarcodeScanDialog.jsx`
+- UI-Klassen: `src/lib/barcodeDialogUi.js` (analog `authUi.js`)
+- Radix `@radix-ui/react-dialog`, Overlay `bg-black/80`
+- Hilfsfunktionen: `src/lib/barcodes.js` (`barcodesMatch`, `fetchOpenFoodFactsName`)
+- Einbindung in `App.jsx` via `<BarcodeScanDialog … />`
+
+## Zurück zur alten Dialog-UI (gelb/amber, App.css)
+
+1. In `App.jsx` wieder Inline-Dialog mit Klassen `barcode-dialog-*` aus `App.css` (oder Git-Historie vor shadcn-Umstellung).
+2. `BarcodeScanDialog.jsx` entfernen oder nicht mehr einbinden.
+3. Styles in `App.css` ab Zeile `.barcode-dialog-backdrop` sind noch vorhanden (Legacy).

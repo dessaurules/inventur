@@ -4,7 +4,11 @@ import { Archive, ChevronDown, Download, History, MoreHorizontal, Plus, Trash2, 
 import { toast } from 'sonner'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage'
 import { exportInventurCsv, exportInventurPdf, groupTableRowsByCategory } from '../lib/inventurExport'
-import { loadClosedInventurenWithRows, rowGesamtEuro } from '../lib/inventurHistory'
+import {
+  loadClosedInventurenWithRows,
+  loadInventurSessionLists,
+  rowGesamtEuro,
+} from '../lib/inventurHistory'
 import { pb } from '../lib/pocketbase'
 import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
 import { formatUnterlagerLabel } from '../lib/lagerAccess'
@@ -375,48 +379,13 @@ export function LastInventurView({
   const reloadInventurListenLive = useCallback(async () => {
     if (!currentUser) return
     try {
-      const [closed, list] = await Promise.all([
-        loadClosedInventurenWithRows(),
-        pb.collection(PB_COLLECTIONS.zaehlSessions).getFullList({
-          sort: '-started',
-          expand: 'unterlager.lager,session_owner',
-          requestKey: null,
-        }),
-      ])
-      setInventuren(closed)
-      setOpenSessions(list.filter((r) => !r.ended))
+      const { closedInventuren, openSessions: open } = await loadInventurSessionLists()
+      setInventuren(closedInventuren)
+      setOpenSessions(open)
     } catch {
       /* bei Bedarf weiterhin manuell per refreshTrigger */
     }
   }, [currentUser])
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const result = await loadClosedInventurenWithRows()
-        if (cancelled) return
-        setInventuren(result)
-        setFilterUnterlagerId('')
-        setSelectedRowId(null)
-      } catch (e) {
-        if (cancelled) return
-        setInventuren([])
-        setError(
-          e?.response?.message ||
-            e?.message ||
-            'Abgeschlossene Inventuren konnten nicht geladen werden.'
-        )
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [refreshTrigger])
 
   useEffect(() => {
     if (!currentUser) {
@@ -425,24 +394,32 @@ export function LastInventurView({
     }
     let cancelled = false
     ;(async () => {
+      setLoading(true)
       setOpenSessionsLoading(true)
+      setError('')
       setOpenSessionsError('')
       try {
-        const list = await pb.collection(PB_COLLECTIONS.zaehlSessions).getFullList({
-          sort: '-started',
-          expand: 'unterlager.lager,session_owner',
-          requestKey: null,
-        })
-        if (!cancelled) setOpenSessions(list.filter((r) => !r.ended))
+        const { closedInventuren, openSessions: open } = await loadInventurSessionLists()
+        if (cancelled) return
+        setInventuren(closedInventuren)
+        setOpenSessions(open)
+        setFilterUnterlagerId('')
+        setSelectedRowId(null)
       } catch (e) {
-        if (!cancelled) {
-          setOpenSessions([])
-          setOpenSessionsError(
-            e?.response?.message || e?.message || 'Offene Sessions konnten nicht geladen werden.'
-          )
-        }
+        if (cancelled) return
+        setInventuren([])
+        setOpenSessions([])
+        const msg =
+          e?.response?.message ||
+          e?.message ||
+          'Abgeschlossene Inventuren konnten nicht geladen werden.'
+        setError(msg)
+        setOpenSessionsError(msg)
       } finally {
-        if (!cancelled) setOpenSessionsLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setOpenSessionsLoading(false)
+        }
       }
     })()
     return () => {

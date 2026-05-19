@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { loadClosedInventurenWithRows, rowGesamtEuro } from '../lib/inventurHistory'
-import { pb } from '../lib/pocketbase'
-import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
+import { fetchArticleCatalogCount } from '../lib/articleCatalog'
+import { loadInventurSessionLists, rowGesamtEuro } from '../lib/inventurHistory'
 import { formatUnterlagerLabel } from '../lib/lagerAccess'
 
 function formatDeDateShort(iso) {
@@ -44,7 +43,6 @@ function unterlagerLine(rec) {
  */
 export function InventurDashboard({
   refreshTrigger,
-  catalogArticleCount,
   onJoinOpenSession,
   currentUser,
 }) {
@@ -55,30 +53,7 @@ export function InventurDashboard({
   const [openSessionsLoading, setOpenSessionsLoading] = useState(false)
   const [openSessionsError, setOpenSessionsError] = useState('')
   const [openSessionsPanel, setOpenSessionsPanel] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      setLoading(true)
-      setError('')
-      try {
-        const rows = await loadClosedInventurenWithRows()
-        if (!cancelled) setInventuren(rows)
-      } catch (e) {
-        if (!cancelled) {
-          setInventuren([])
-          setError(
-            e?.response?.message || e?.message || 'Kennzahlen konnten nicht geladen werden.'
-          )
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [refreshTrigger])
+  const [catalogArticleCount, setCatalogArticleCount] = useState(null)
 
   useEffect(() => {
     if (!currentUser) {
@@ -87,30 +62,50 @@ export function InventurDashboard({
     }
     let cancelled = false
     ;(async () => {
+      setLoading(true)
       setOpenSessionsLoading(true)
+      setError('')
       setOpenSessionsError('')
       try {
-        const list = await pb.collection(PB_COLLECTIONS.zaehlSessions).getFullList({
-          sort: '-started',
-          expand: 'unterlager.lager,session_owner',
-          requestKey: null,
-        })
-        if (!cancelled) setOpenSessions(list.filter((r) => !r.ended))
+        const { closedInventuren, openSessions: open } = await loadInventurSessionLists()
+        if (!cancelled) {
+          setInventuren(closedInventuren)
+          setOpenSessions(open)
+        }
       } catch (e) {
         if (!cancelled) {
+          setInventuren([])
           setOpenSessions([])
-          setOpenSessionsError(
-            e?.response?.message || e?.message || 'Offene Sessions konnten nicht geladen werden.'
-          )
+          const msg = e?.response?.message || e?.message || 'Inventur-Daten konnten nicht geladen werden.'
+          setError(msg)
+          setOpenSessionsError(msg)
         }
       } finally {
-        if (!cancelled) setOpenSessionsLoading(false)
+        if (!cancelled) {
+          setLoading(false)
+          setOpenSessionsLoading(false)
+        }
       }
     })()
     return () => {
       cancelled = true
     }
   }, [currentUser, refreshTrigger])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const n = await fetchArticleCatalogCount()
+        if (!cancelled) setCatalogArticleCount(n)
+      } catch {
+        if (!cancelled) setCatalogArticleCount(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [refreshTrigger])
 
   const stats = useMemo(() => {
     const latest = inventuren[0]
@@ -211,7 +206,9 @@ export function InventurDashboard({
 
         <article className="inventur-dashboard-tile">
           <h3 className="inventur-dashboard-tile-label">Artikel im Katalog</h3>
-          <p className="inventur-dashboard-tile-value">{String(catalogArticleCount ?? 0)}</p>
+          <p className="inventur-dashboard-tile-value">
+            {catalogArticleCount == null ? '…' : String(catalogArticleCount)}
+          </p>
           <p className="inventur-dashboard-tile-sub">Einträge im Magazin (PocketBase)</p>
         </article>
       </div>

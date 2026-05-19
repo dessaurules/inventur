@@ -12,6 +12,7 @@
     "dev": "vite",
     "dev:stack": "concurrently -n pb,vite -c cyan,magenta \"npm run pb\" \"npm run dev\"",
     "dev:full": "concurrently -n pb,vite,api -c cyan,magenta,green \"npm run pb\" \"npm run dev\" \"npm run server\"",
+    "dev:restart": "bash scripts/restart-dev-stack.sh",
     "server": "node server.mjs",
     "build": "vite build",
     "start": "npm run build && node server.mjs",

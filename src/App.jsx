@@ -1,13 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { Menu, Search, X } from 'lucide-react'
+import { Menu, Plus, Search, X } from 'lucide-react'
 import './App.css'
-import MagazinPage from './backend/magazin/MagazinPage.jsx'
 import { normalizeStueckProLiefergebinde } from './backend/magazin/types.js'
-import LagerverwaltungPage from './components/LagerverwaltungPage.jsx'
-import MitarbeiterView from './components/MitarbeiterView.jsx'
 import AccountSettingsPage from './components/AccountSettingsPage.jsx'
 import ArticleView from './components/ArticleView.jsx'
+import { BarcodeScanDialog } from './components/BarcodeScanDialog.jsx'
+import { InventurBarcodeScanOverlay } from './components/InventurBarcodeScanOverlay.jsx'
+import {
+  findArticleByBarcodeCode,
+  looksLikeBarcode,
+  normalizeScannedCode,
+} from './lib/barcodeSearchResolve.js'
+import { CountingCommandPalette } from './components/CountingCommandPalette.jsx'
 import LoginView from './components/LoginView.jsx'
 import { InventurDashboard } from './components/InventurDashboard.jsx'
 import { LastInventurView } from './components/LastInventurView.jsx'
@@ -26,9 +31,21 @@ import {
   formatUnterlagerLabel,
   formatUnterlagerNameOnly,
 } from './lib/lagerAccess'
-import { BrowserMultiFormatReader } from '@zxing/browser'
+import { fetchArticleCatalog } from './lib/articleCatalog.js'
 import { ClientResponseError, getTokenPayload, isTokenExpired } from 'pocketbase'
 import { Toaster } from 'sonner'
+
+const MagazinPage = lazy(() => import('./backend/magazin/MagazinPage.jsx'))
+const LagerverwaltungPage = lazy(() => import('./components/LagerverwaltungPage.jsx'))
+const MitarbeiterView = lazy(() => import('./components/MitarbeiterView.jsx'))
+
+function ViewLoadingFallback() {
+  return (
+    <p className="session-message session-message--info" role="status">
+      Ansicht wird geladen…
+    </p>
+  )
+}
 
 const ZAEHL_SESSION_STORAGE_KEY = 'vibe-inventur-zaehl-session-id'
 const APP_VIEW_STORAGE_KEY = 'vibe-inventur-app-view'
@@ -114,18 +131,6 @@ async function normalizeArtikelLagerFields(pb, lidRaw, ulidRaw) {
       message: 'Unterlager nicht gefunden oder keine Berechtigung zum Lesen (API-Regeln „unterlager“).',
     }
   }
-}
-
-/** Vergleich gescannt vs. gespeichert (Trim, optional nur Ziffern – z. B. führende Nullen/Format). */
-function barcodesMatch(storedRaw, scannedRaw) {
-  const a = String(storedRaw ?? '').trim()
-  const b = String(scannedRaw ?? '').trim()
-  if (!a || !b) return false
-  if (a === b) return true
-  const da = a.replace(/\D/g, '')
-  const db = b.replace(/\D/g, '')
-  if (!da || !db) return false
-  return da === db
 }
 
 /**
@@ -294,22 +299,6 @@ function debugLogPbArtikelSave(action, collectionId, plain) {
   })
 }
 
-async function fetchOpenFoodFactsName(barcode) {
-  const code = String(barcode ?? '').trim()
-  if (!code) return ''
-  try {
-    /* Server-Proxy (server.mjs): vermeidet Browser-CORS; Vite leitet /api → Express. */
-    const digits = code.replace(/\D/g, '')
-    const res = await fetch(`/api/openfoodfacts/product/${encodeURIComponent(digits || code)}`)
-    if (!res.ok) return ''
-    const data = await res.json()
-    const p = data?.product
-    return String(p?.product_name_de || p?.product_name || p?.generic_name_de || p?.generic_name || '').trim()
-  } catch {
-    return ''
-  }
-}
-
 function App({ countingApp = false } = {}) {
   const PB_ARTICLES_COLLECTION = PB_COLLECTIONS.artikel
   const countingEntryUi = resolveCountingEntryUi(countingApp)
@@ -325,6 +314,8 @@ function App({ countingApp = false } = {}) {
   const [authReady] = useState(true)
   const [items, setItems] = useState([])
   const [archivedItems, setArchivedItems] = useState([])
+  const [articlesLoading, setArticlesLoading] = useState(false)
+  const articlesLoadedRef = useRef(false)
   const [loadError, setLoadError] = useState('')
   const [manualCategories, setManualCategories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('Alle')
@@ -338,39 +329,29 @@ function App({ countingApp = false } = {}) {
   const [sessionBusy, setSessionBusy] = useState(false)
   const [sessionMessage, setSessionMessage] = useState('')
   const [zaehlungSyncError, setZaehlungSyncError] = useState('')
-  const [barcodeDialogOpen, setBarcodeDialogOpen] = useState(false)
+  const [addArticleDialogOpen, setAddArticleDialogOpen] = useState(false)
+  const [addArticleExpandScan, setAddArticleExpandScan] = useState(false)
+  const [countingCommandOpen, setCountingCommandOpen] = useState(false)
+  const [searchScanOpen, setSearchScanOpen] = useState(false)
+  const [searchBarcodeMiss, setSearchBarcodeMiss] = useState(/** @type {string | null} */ (null))
   const [tenantStandort, setTenantStandort] = useState(null)
-  const [barcodeInput, setBarcodeInput] = useState('')
   /** Nach Barcode-Treffer: Karte in der Liste fokussieren (wird nach Scroll zurückgesetzt). */
   const [barcodeScrollArticleId, setBarcodeScrollArticleId] = useState(null)
-  const [barcodeLookupName, setBarcodeLookupName] = useState('')
-  const [barcodeLookupBusy, setBarcodeLookupBusy] = useState(false)
-  const [barcodeLookupMessage, setBarcodeLookupMessage] = useState('')
-  const [barcodeScannerMessage, setBarcodeScannerMessage] = useState('')
-  const [barcodeScannerActive, setBarcodeScannerActive] = useState(false)
-  const [barcodeCreateDraft, setBarcodeCreateDraft] = useState({
-    preisInput: '',
-    einheit: 'Stk',
-    category: '',
-  })
-  /** Barcode unbekannt: „Neu anlegen“ vs. „Bestehenden verknüpfen“. */
-  const [barcodeLinkMode, setBarcodeLinkMode] = useState('create')
-  const [barcodeLinkSearch, setBarcodeLinkSearch] = useState('')
-  const [barcodeLinkSelectedId, setBarcodeLinkSelectedId] = useState(null)
   const [lastInventurRefresh, setLastInventurRefresh] = useState(0)
   const prevAuthUserIdRef = useRef(null)
-  const barcodeVideoRef = useRef(null)
-  const barcodeStreamRef = useRef(null)
-  const barcodeRafRef = useRef(0)
-  const barcodeScanLockRef = useRef(false)
-  const barcodeZxingControlsRef = useRef(null)
-  const barcodeDialogInputRef = useRef(null)
   /** Aktiv während Excel-Massenimport → kein `confirm` bei doppelter Artikelnummer (pro Zeile). */
   const artikelBulkExcelImportGuardRef = useRef(0)
 
   usePresenceHeartbeat(currentUser?.id)
 
   const effectiveZaehlScope = countingApp ? zaehlScopeValue : ''
+
+  const needsArticleCatalog = useMemo(() => {
+    if (!currentUser) return false
+    if (view === 'admin' || view === 'lager') return true
+    if (zaehlSessionId) return true
+    return false
+  }, [currentUser, view, zaehlSessionId])
 
   const canEndActiveZaehlSession = useMemo(
     () => userCanEndZaehlSession(currentUser, { session_owner: activeSessionOwnerId }),
@@ -383,23 +364,6 @@ function App({ countingApp = false } = {}) {
       .filter((category) => typeof category === 'string' && category.length > 0)
     return [...new Set([...fromItems, ...manualCategories])]
   }, [items, manualCategories])
-
-  const barcodeLinkCandidates = useMemo(() => {
-    const q = String(barcodeLinkSearch ?? '')
-      .trim()
-      .toLowerCase()
-    return items
-      .filter((it) => it && !it.archived)
-      .filter((it) => {
-        if (!q) return true
-        const name = String(it.name ?? '').toLowerCase()
-        const nr = String(it.artikelnummer ?? '').toLowerCase()
-        const cat = String(it.category ?? '').toLowerCase()
-        const bc = String(it.barcode ?? '').toLowerCase()
-        return name.includes(q) || nr.includes(q) || cat.includes(q) || bc.includes(q)
-      })
-      .slice(0, 100)
-  }, [items, barcodeLinkSearch])
 
   useEffect(() => {
     setSelectedCategory('Alle')
@@ -529,23 +493,30 @@ function App({ countingApp = false } = {}) {
   useEffect(() => {
     if (!currentUser) {
       setItems([])
+      setArchivedItems([])
       setLoadError('')
+      setArticlesLoading(false)
+      articlesLoadedRef.current = false
       return
     }
+    if (!needsArticleCatalog) return
+    if (articlesLoadedRef.current) return
+
+    let cancelled = false
     const loadArticles = async () => {
+      setArticlesLoading(true)
       try {
         setLoadError('')
-        const records = await pb.collection(PB_ARTICLES_COLLECTION).getFullList({
-          sort: 'name',
-          requestKey: null,
-        })
-        const allMapped = records
-          .map((record) => mapPbRecordToArticle(record))
-          .filter((item) => item && item.name)
-        setItems(allMapped.filter((item) => !item.archived))
-        setArchivedItems(allMapped.filter((item) => item.archived))
+        const { items: active, archivedItems: archived } = await fetchArticleCatalog()
+        if (cancelled) return
+        setItems(active)
+        setArchivedItems(archived)
+        articlesLoadedRef.current = true
       } catch (e) {
+        if (cancelled) return
         setItems([])
+        setArchivedItems([])
+        articlesLoadedRef.current = false
         const detail = pocketBaseFullErrorMessage(e)
         let msg =
           'Artikel konnten nicht aus PocketBase geladen werden. Prüfe: PocketBase läuft, Collection „artikel“, API Rules.'
@@ -560,10 +531,15 @@ function App({ countingApp = false } = {}) {
           console.error('[loadArticles]', pb.baseUrl, e)
         }
         setLoadError(msg)
+      } finally {
+        if (!cancelled) setArticlesLoading(false)
       }
     }
     loadArticles()
-  }, [PB_ARTICLES_COLLECTION, currentUser])
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser, needsArticleCatalog])
 
   useEffect(() => {
     if (!currentUser) {
@@ -1453,347 +1429,173 @@ function App({ countingApp = false } = {}) {
     return () => window.removeEventListener('keydown', onKey)
   }, [countingApp, currentUser])
 
+  const countingPaletteContext = useMemo(() => {
+    if (view === 'account') return 'account'
+    if (zaehlSessionId && countingEntryUi) return 'session'
+    return 'dashboard'
+  }, [view, zaehlSessionId, countingEntryUi])
+
+  const openCountingCommandPalette = useCallback(() => {
+    setMenuOpen(false)
+    setSettingsMenuOpen(false)
+    setCountingCommandOpen(true)
+  }, [])
+
+  const focusInventurSearch = useCallback(() => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector('.inventur-header-search')
+      if (el instanceof HTMLInputElement) el.focus()
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!countingApp || !currentUser || !userCan(currentUser, 'inventur')) return undefined
+    const isEditable = (target) => {
+      if (!(target instanceof HTMLElement)) return false
+      const tag = target.tagName
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable
+    }
+    const onKey = (e) => {
+      if (isEditable(e.target)) return
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        openCountingCommandPalette()
+        return
+      }
+      if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault()
+        openCountingCommandPalette()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [countingApp, currentUser, openCountingCommandPalette])
+
   const handleZaehlScopeChange = (nextScope) => {
     setZaehlScopeValue(nextScope)
   }
 
-  const stopBarcodeCamera = () => {
-    if (barcodeZxingControlsRef.current) {
-      try {
-        barcodeZxingControlsRef.current.stop()
-      } catch {
-        /* ignore */
-      }
-      barcodeZxingControlsRef.current = null
-    }
-    if (barcodeRafRef.current) {
-      cancelAnimationFrame(barcodeRafRef.current)
-      barcodeRafRef.current = 0
-    }
-    const s = barcodeStreamRef.current
-    if (s) {
-      s.getTracks().forEach((t) => t.stop())
-      barcodeStreamRef.current = null
-    }
-    const v = barcodeVideoRef.current
-    if (v) v.srcObject = null
-    barcodeScanLockRef.current = false
-    setBarcodeScannerActive(false)
-  }
+  const handleBarcodeArticleFound = useCallback((hit) => {
+    const searchLikeManual =
+      String(hit.name ?? '').trim() ||
+      String(hit.artikelnummer ?? '').trim() ||
+      String(hit.barcode ?? '').trim()
+    flushSync(() => {
+      setSelectedCategory('Alle')
+      setArtikelSearchQuery(searchLikeManual)
+      setBarcodeScrollArticleId(hit.id)
+      setSearchBarcodeMiss(null)
+    })
+  }, [])
 
-  const resolveScannedBarcode = useCallback((scannedCode) => {
-    const code = String(scannedCode ?? barcodeInput ?? '').trim()
-    if (!code) return
-    const hit = items.find((it) => barcodesMatch(it.barcode, code))
-    if (hit) {
-      const searchLikeManual =
-        String(hit.name ?? '').trim() ||
-        String(hit.artikelnummer ?? '').trim() ||
-        code
-      flushSync(() => {
-        stopBarcodeCamera()
-        setBarcodeDialogOpen(false)
-        setBarcodeInput('')
-        setBarcodeLookupName('')
-        setBarcodeLookupMessage('')
-        setBarcodeScannerMessage('')
-        setBarcodeLinkMode('create')
-        setBarcodeLinkSearch('')
-        setBarcodeLinkSelectedId(null)
-        setSelectedCategory('Alle')
-        setArtikelSearchQuery(searchLikeManual)
-        setBarcodeScrollArticleId(hit.id)
-      })
+  const resolveSearchBarcode = useCallback(
+    (rawCode) => {
+      const code = normalizeScannedCode(rawCode)
+      if (!code) return
+      const hit = findArticleByBarcodeCode(items, code)
+      if (hit) {
+        handleBarcodeArticleFound(hit)
+        return
+      }
+      setSearchBarcodeMiss(code)
+      setArtikelSearchQuery(code)
+    },
+    [items, handleBarcodeArticleFound]
+  )
+
+  useEffect(() => {
+    if (!zaehlSessionId || !countingEntryUi) return
+    const code = normalizeScannedCode(artikelSearchQuery)
+    if (!looksLikeBarcode(code)) {
+      setSearchBarcodeMiss(null)
       return
     }
-    setBarcodeInput(code)
-    setBarcodeLinkMode('create')
-    setBarcodeLinkSearch('')
-    setBarcodeLinkSelectedId(null)
-    setBarcodeLookupBusy(true)
-    setBarcodeLookupMessage('')
-    void fetchOpenFoodFactsName(code)
-      .then((name) => {
-        setBarcodeLookupName(name)
-        setBarcodeLookupMessage(
-          name
-            ? 'Kein Artikel in deinem Bestand. Name aus Open Food Facts wurde übernommen.'
-            : 'Kein Artikel im Bestand gefunden. API liefert keinen Namen.'
+    const t = window.setTimeout(() => {
+      const hit = findArticleByBarcodeCode(items, code)
+      if (hit) {
+        handleBarcodeArticleFound(hit)
+      } else {
+        setSearchBarcodeMiss(code)
+      }
+    }, 160)
+    return () => window.clearTimeout(t)
+  }, [artikelSearchQuery, items, zaehlSessionId, countingEntryUi, handleBarcodeArticleFound])
+
+  const openAddArticleDialog = useCallback((expandScan = false) => {
+    setAddArticleExpandScan(expandScan)
+    setAddArticleDialogOpen(true)
+  }, [])
+
+  const handleBarcodeCreateArticle = useCallback(
+    async ({ code, name, preis, einheit, category }) => {
+      const trimmedName = String(name ?? '').trim()
+      const barcode = String(code ?? '').trim()
+      if (!trimmedName) return { ok: false, message: 'Bitte Artikelname ergänzen.' }
+      if (!Number.isFinite(preis) || preis < 0) {
+        return { ok: false, message: 'Bitte einen gültigen Preis eingeben.' }
+      }
+      const confirmMsg = barcode
+        ? `Neuen Artikel „${trimmedName}“ mit Barcode ${barcode} anlegen?`
+        : `Neuen Artikel „${trimmedName}“ anlegen?`
+      if (!window.confirm(confirmMsg)) {
+        return { ok: false }
+      }
+      const res = await handleCreateArtikel({
+        artikelnummer: '',
+        barcode,
+        name: trimmedName,
+        preis,
+        einheit,
+        category,
+        lagerId: '',
+        unterlagerId: '',
+      })
+      if (res.ok) {
+        setSessionMessage(`Artikel „${trimmedName}“ wurde angelegt.`)
+        return { ok: true }
+      }
+      return { ok: false, message: res.message || 'Artikel konnte nicht angelegt werden.' }
+    },
+    [handleCreateArtikel]
+  )
+
+  const handleBarcodeLinkArticle = useCallback(
+    async ({ code, articleId }) => {
+      if (!code) return { ok: false, message: 'Barcode fehlt.' }
+      const selId = articleId
+      if (!selId) return { ok: false, message: 'Bitte einen Artikel aus der Liste auswählen.' }
+      const art = items.find((x) => x.id === selId)
+      if (!art) return { ok: false, message: 'Auswahl ungültig. Bitte erneut wählen.' }
+      const prevBc = String(art.barcode ?? '').trim()
+      const confirmText = prevBc
+        ? `Barcode ${code} dem Artikel „${art.name}“ zuordnen?\n\nDer bisherige Barcode „${prevBc}“ wird überschrieben.`
+        : `Barcode ${code} dem Artikel „${art.name}“ zuordnen?`
+      if (!window.confirm(confirmText)) return { ok: false }
+      try {
+        const tenantRes = await buildArtikelTenantIdPatch(pb, currentUser)
+        if (!tenantRes.ok) return { ok: false, message: tenantRes.message }
+        const rec = await pb.collection(PB_ARTICLES_COLLECTION).update(
+          selId,
+          { barcode: code, ...tenantRes.patch },
+          { requestKey: null }
         )
-      })
-      .finally(() => {
-        setBarcodeLookupBusy(false)
-      })
-  }, [barcodeInput, items])
-
-  /** Hintergrund fixieren: verhindert Scroll-/Focus-Sprünge der Artikel-Liste, wenn der Barcode-Dialog offen ist. */
-  useEffect(() => {
-    if (!barcodeDialogOpen) return
-    const scrollY = window.scrollY
-    const html = document.documentElement
-    const body = document.body
-    const prev = {
-      htmlOverflow: html.style.overflow,
-      bodyOverflow: body.style.overflow,
-      bodyPosition: body.style.position,
-      bodyTop: body.style.top,
-      bodyLeft: body.style.left,
-      bodyRight: body.style.right,
-      bodyWidth: body.style.width,
-    }
-    html.style.overflow = 'hidden'
-    body.style.overflow = 'hidden'
-    body.style.position = 'fixed'
-    body.style.top = `-${scrollY}px`
-    body.style.left = '0'
-    body.style.right = '0'
-    body.style.width = '100%'
-    return () => {
-      html.style.overflow = prev.htmlOverflow
-      body.style.overflow = prev.bodyOverflow
-      body.style.position = prev.bodyPosition
-      body.style.top = prev.bodyTop
-      body.style.left = prev.bodyLeft
-      body.style.right = prev.bodyRight
-      body.style.width = prev.bodyWidth
-      window.scrollTo(0, scrollY)
-    }
-  }, [barcodeDialogOpen])
-
-  useLayoutEffect(() => {
-    if (!barcodeDialogOpen) return
-    const id = requestAnimationFrame(() => {
-      barcodeDialogInputRef.current?.focus({ preventScroll: true })
-    })
-    return () => cancelAnimationFrame(id)
-  }, [barcodeDialogOpen])
-
-  useEffect(() => {
-    if (!barcodeDialogOpen) {
-      stopBarcodeCamera()
-      setBarcodeScannerMessage('')
-      return
-    }
-    if (!window.isSecureContext) {
-      setBarcodeScannerMessage(
-        'Live-Kamera: Bei http:// im WLAN nicht möglich (Vorgabe des Browsers). ' +
-          'Stattdessen Barcode tippen, oder lokal HTTPS (certs/, siehe Server-Konsole).'
-      )
-      return
-    }
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setBarcodeScannerMessage('Kein Kamera-Zugriff verfügbar.')
-      return
-    }
-
-    let cancelled = false
-    let nativeDetector = null
-    if (typeof window.BarcodeDetector === 'function') {
-      try {
-        nativeDetector = new window.BarcodeDetector({
-          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39'],
+        const mapped = mapPbRecordToArticle(rec)
+        if (!mapped) return { ok: false, message: 'Antwort konnte nicht verarbeitet werden.' }
+        setItems((prev) => {
+          const next = [...prev.filter((x) => x.id !== mapped.id), mapped]
+          return next.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de', { sensitivity: 'base' }))
         })
-      } catch {
-        nativeDetector = null
-      }
-    }
-
-    const start = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false,
-        })
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop())
-          return
+        setSessionMessage(`Barcode wurde „${art.name}“ zugeordnet.`)
+        return { ok: true }
+      } catch (e) {
+        return {
+          ok: false,
+          message: pocketBaseFullErrorMessage(e, 'PocketBase: Update-Regel für `artikel` prüfen.'),
         }
-        barcodeStreamRef.current = stream
-        const video = barcodeVideoRef.current
-        if (!video) return
-
-        if (nativeDetector) {
-          video.srcObject = stream
-          await video.play()
-          setBarcodeScannerActive(true)
-          setBarcodeScannerMessage('Kamera aktiv. Barcode ins Bild halten.')
-
-          const tick = async () => {
-            if (cancelled) return
-            try {
-              if (video.readyState >= 2 && !barcodeScanLockRef.current) {
-                const codes = await nativeDetector.detect(video)
-                const raw = String(codes?.[0]?.rawValue ?? '').trim()
-                if (raw) {
-                  barcodeScanLockRef.current = true
-                  stopBarcodeCamera()
-                  resolveScannedBarcode(raw)
-                  return
-                }
-              }
-            } catch {
-              /* ignore frame errors */
-            }
-            barcodeRafRef.current = requestAnimationFrame(tick)
-          }
-          barcodeRafRef.current = requestAnimationFrame(tick)
-          return
-        }
-
-        /* Safari u. a.: kein BarcodeDetector → Live-Scan mit ZXing */
-        setBarcodeScannerMessage('Kamera aktiv (Kompatibilitätsmodus). Barcode ins Bild halten.')
-        setBarcodeScannerActive(true)
-        const reader = new BrowserMultiFormatReader()
-        let controls
-        try {
-          controls = await reader.decodeFromStream(stream, video, (result, _err, ctrl) => {
-            if (cancelled || barcodeScanLockRef.current) return
-            const raw = result ? String(result.getText?.() ?? '').trim() : ''
-            if (!raw) return
-            barcodeScanLockRef.current = true
-            try {
-              ctrl.stop()
-            } catch {
-              /* ignore */
-            }
-            barcodeZxingControlsRef.current = null
-            stopBarcodeCamera()
-            resolveScannedBarcode(raw)
-          })
-        } catch (e) {
-          stream.getTracks().forEach((t) => t.stop())
-          barcodeStreamRef.current = null
-          setBarcodeScannerActive(false)
-          setBarcodeScannerMessage('Kamera-Scan konnte nicht gestartet werden.')
-          if (import.meta.env.DEV) console.error('[barcode zxing]', e)
-          return
-        }
-        if (cancelled) {
-          try {
-            controls.stop()
-          } catch {
-            /* ignore */
-          }
-          stream.getTracks().forEach((t) => t.stop())
-          return
-        }
-        barcodeZxingControlsRef.current = controls
-      } catch {
-        setBarcodeScannerMessage('Kamera konnte nicht gestartet werden (Berechtigung prüfen).')
       }
-    }
-
-    void start()
-    return () => {
-      cancelled = true
-      stopBarcodeCamera()
-    }
-  }, [barcodeDialogOpen, resolveScannedBarcode])
-
-  const closeBarcodeDialog = () => {
-    setBarcodeDialogOpen(false)
-    stopBarcodeCamera()
-    setBarcodeLinkMode('create')
-    setBarcodeLinkSearch('')
-    setBarcodeLinkSelectedId(null)
-    setBarcodeScrollArticleId(null)
-  }
-
-  const confirmAddBarcodeArtikel = async () => {
-    const code = String(barcodeInput ?? '').trim()
-    const name = String(barcodeLookupName ?? '').trim()
-    const preis = parsePreisInput(barcodeCreateDraft.preisInput)
-    const einheit = String(barcodeCreateDraft.einheit ?? '').trim() || 'Stk'
-    const category = String(barcodeCreateDraft.category ?? '').trim()
-    if (!code) return
-    if (!name) {
-      setBarcodeLookupMessage('Bitte Artikelname ergänzen.')
-      return
-    }
-    if (!Number.isFinite(preis) || preis < 0) {
-      setBarcodeLookupMessage('Bitte einen gültigen Preis eingeben.')
-      return
-    }
-    const ok = window.confirm(`Neuen Artikel „${name}“ mit Barcode ${code} anlegen?`)
-    if (!ok) return
-    const res = await handleCreateArtikel({
-      artikelnummer: '',
-      barcode: code,
-      name,
-      preis,
-      einheit,
-      category,
-      lagerId: '',
-      unterlagerId: '',
-    })
-    if (res.ok) {
-      setBarcodeDialogOpen(false)
-      setBarcodeInput('')
-      setBarcodeLookupName('')
-      setBarcodeLookupMessage('')
-      setBarcodeCreateDraft({ preisInput: '', einheit: 'Stk', category: '' })
-      setBarcodeLinkMode('create')
-      setBarcodeLinkSearch('')
-      setBarcodeLinkSelectedId(null)
-      setSessionMessage(`Artikel „${name}“ wurde angelegt.`)
-    } else {
-      setBarcodeLookupMessage(res.message || 'Artikel konnte nicht angelegt werden.')
-    }
-  }
-
-  const confirmLinkBarcodeToArtikel = async () => {
-    const code = String(barcodeInput ?? '').trim()
-    if (!code) return
-    const selId = barcodeLinkSelectedId
-    if (!selId) {
-      setBarcodeLookupMessage('Bitte einen Artikel aus der Liste auswählen.')
-      return
-    }
-    const art = items.find((x) => x.id === selId)
-    if (!art) {
-      setBarcodeLookupMessage('Auswahl ungültig. Bitte erneut wählen.')
-      return
-    }
-    const prevBc = String(art.barcode ?? '').trim()
-    const confirmText = prevBc
-      ? `Barcode ${code} dem Artikel „${art.name}“ zuordnen?\n\nDer bisherige Barcode „${prevBc}“ wird überschrieben.`
-      : `Barcode ${code} dem Artikel „${art.name}“ zuordnen?`
-    if (!window.confirm(confirmText)) return
-    try {
-      const tenantRes = await buildArtikelTenantIdPatch(pb, currentUser)
-      if (!tenantRes.ok) {
-        setBarcodeLookupMessage(tenantRes.message)
-        return
-      }
-      const rec = await pb.collection(PB_ARTICLES_COLLECTION).update(
-        selId,
-        { barcode: code, ...tenantRes.patch },
-        { requestKey: null }
-      )
-      const mapped = mapPbRecordToArticle(rec)
-      if (!mapped) {
-        setBarcodeLookupMessage('Antwort konnte nicht verarbeitet werden.')
-        return
-      }
-      setItems((prev) => {
-        const next = [...prev.filter((x) => x.id !== mapped.id), mapped]
-        return next.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'de', { sensitivity: 'base' }))
-      })
-      setBarcodeDialogOpen(false)
-      setBarcodeInput('')
-      setBarcodeLookupName('')
-      setBarcodeLookupMessage('')
-      setBarcodeCreateDraft({ preisInput: '', einheit: 'Stk', category: '' })
-      setBarcodeLinkMode('create')
-      setBarcodeLinkSearch('')
-      setBarcodeLinkSelectedId(null)
-      setSessionMessage(`Barcode wurde „${art.name}“ zugeordnet.`)
-    } catch (e) {
-      setBarcodeLookupMessage(
-        pocketBaseFullErrorMessage(e, 'PocketBase: Update-Regel für `artikel` prüfen.')
-      )
-    }
-  }
+    },
+    [PB_ARTICLES_COLLECTION, currentUser, items]
+  )
 
   const runFinalizeZaehlSessionClose = useCallback(
     async (
@@ -2036,6 +1838,21 @@ function App({ countingApp = false } = {}) {
             ) : null}
           </div>
           <div className="side-menu-end">
+            {countingApp && currentUser && userCan(currentUser, 'inventur') ? (
+              <button
+                type="button"
+                className="counting-cmdk-trigger"
+                onClick={openCountingCommandPalette}
+                aria-label="Suche und Aktionen öffnen"
+              >
+                <Search size={14} strokeWidth={2} aria-hidden />
+                <span className="counting-cmdk-trigger-label">Suche &amp; Aktionen</span>
+                <span className="counting-cmdk-trigger-kbd" aria-hidden>
+                  <kbd className="counting-cmdk-kbd">⌘</kbd>
+                  <kbd className="counting-cmdk-kbd">K</kbd>
+                </span>
+              </button>
+            ) : null}
             {!countingApp && currentUser && userCan(currentUser, 'magazin:read') ? (
               <button
                 type="button"
@@ -2138,35 +1955,67 @@ function App({ countingApp = false } = {}) {
                 </select>
               </div>
               <div className="inventur-header-actions">
-                <input
-                  type="text"
-                  className="inventur-header-search"
-                  value={artikelSearchQuery}
-                  onChange={(e) => setArtikelSearchQuery(e.target.value)}
-                  placeholder="Artikel suchen (Name/Nr./Barcode)"
-                  aria-label="Artikel suchen"
-                />
+                <div className="inventur-header-search-wrap">
+                  <input
+                    type="text"
+                    className="inventur-header-search"
+                    value={artikelSearchQuery}
+                    onChange={(e) => {
+                      setArtikelSearchQuery(e.target.value)
+                      if (!looksLikeBarcode(normalizeScannedCode(e.target.value))) {
+                        setSearchBarcodeMiss(null)
+                      }
+                    }}
+                    placeholder="Artikel suchen"
+                    aria-label="Artikel suchen"
+                  />
+                  <button
+                    type="button"
+                    className="inventur-header-search-scan"
+                    onClick={() => setSearchScanOpen(true)}
+                    aria-label="Barcode scannen"
+                  >
+                    <svg className="inventur-header-search-scan-icon" viewBox="0 0 64 64" aria-hidden>
+                      <path d="M8 20V10h10M56 20V10H46M8 44v10h10M56 44v10H46" />
+                      <path d="M16 18v28M21 18v28M26 18v28M31 18v28M35 18v28M40 18v28M45 18v28M50 18v28" />
+                      <path d="M14 32h36" />
+                    </svg>
+                  </button>
+                </div>
                 <button
                   type="button"
-                  className="inventur-header-scan-btn"
-                  onClick={() => {
-                    setBarcodeDialogOpen(true)
-                    setBarcodeLookupMessage('')
-                    setBarcodeScannerMessage('')
-                  }}
-                  aria-label="Barcode scannen"
+                  className="inventur-header-add-btn"
+                  onClick={() => openAddArticleDialog(false)}
+                  aria-label="Artikel hinzufügen"
                 >
-                  <svg
-                    className="inventur-header-scan-icon"
-                    viewBox="0 0 64 64"
-                    aria-hidden="true"
-                  >
-                    <path d="M8 20V10h10M56 20V10H46M8 44v10h10M56 44v10H46" />
-                    <path d="M16 18v28M21 18v28M26 18v28M31 18v28M35 18v28M40 18v28M45 18v28M50 18v28" />
-                    <path d="M14 32h36" />
-                  </svg>
+                  <Plus className="inventur-header-add-icon" size={22} strokeWidth={2.5} aria-hidden />
                 </button>
               </div>
+              {searchBarcodeMiss ? (
+                <div className="inventur-header-barcode-miss" role="status">
+                  <span>
+                    Kein Artikel mit Barcode <strong>{searchBarcodeMiss}</strong>.
+                  </span>
+                  <button
+                    type="button"
+                    className="inventur-header-barcode-miss-btn"
+                    onClick={() => {
+                      setSearchBarcodeMiss(null)
+                      openAddArticleDialog(true)
+                    }}
+                  >
+                    Artikel hinzufügen
+                  </button>
+                  <button
+                    type="button"
+                    className="inventur-header-barcode-miss-dismiss"
+                    onClick={() => setSearchBarcodeMiss(null)}
+                    aria-label="Hinweis schließen"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {view === 'default' && zaehlSessionId && countingEntryUi ? (
@@ -2201,34 +2050,44 @@ function App({ countingApp = false } = {}) {
         }
       >
         {authReady && currentUser && view === 'lager' && userCan(currentUser, 'magazin:read') ? (
-          <LagerverwaltungPage
-            readOnly={!userCan(currentUser, 'magazin:write')}
-            canAssignUsers={userCan(currentUser, 'manageUsers')}
-          />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <LagerverwaltungPage
+              readOnly={!userCan(currentUser, 'magazin:write')}
+              canAssignUsers={userCan(currentUser, 'manageUsers')}
+            />
+          </Suspense>
         ) : null}
 
         {authReady && currentUser && view === 'admin' && userCan(currentUser, 'magazin:read') && (
-          <MagazinPage
-            categories={categories}
-            items={items}
-            archivedItems={archivedItems}
-            loadError={loadError}
-            readOnlyMagazin={!userCan(currentUser, 'magazin:write')}
-            currentUser={currentUser}
-            onAddCategory={handleAddCategory}
-            onRenameCategory={handleRenameCategory}
-            onDeleteCategory={handleDeleteCategory}
-            onCreateArtikel={handleCreateArtikel}
-            onBulkImportArtikel={handleBulkImportArtikel}
-            onUpdateArtikel={handleUpdateArtikel}
-            onArchiveArtikel={handleArchiveArtikel}
-            onUnarchiveArtikel={handleUnarchiveArtikel}
-            onDeleteArtikel={handleDeleteArtikel}
-          />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {articlesLoading && items.length === 0 && !loadError ? (
+              <ViewLoadingFallback />
+            ) : (
+              <MagazinPage
+                categories={categories}
+                items={items}
+                archivedItems={archivedItems}
+                loadError={loadError}
+                readOnlyMagazin={!userCan(currentUser, 'magazin:write')}
+                currentUser={currentUser}
+                onAddCategory={handleAddCategory}
+                onRenameCategory={handleRenameCategory}
+                onDeleteCategory={handleDeleteCategory}
+                onCreateArtikel={handleCreateArtikel}
+                onBulkImportArtikel={handleBulkImportArtikel}
+                onUpdateArtikel={handleUpdateArtikel}
+                onArchiveArtikel={handleArchiveArtikel}
+                onUnarchiveArtikel={handleUnarchiveArtikel}
+                onDeleteArtikel={handleDeleteArtikel}
+              />
+            )}
+          </Suspense>
         )}
 
         {authReady && currentUser && view === 'mitarbeiter' && userCan(currentUser, 'manageUsers') ? (
-          <MitarbeiterView />
+          <Suspense fallback={<ViewLoadingFallback />}>
+            <MitarbeiterView />
+          </Suspense>
         ) : null}
 
         {authReady && currentUser && view === 'account' ? <AccountSettingsPage user={currentUser} /> : null}
@@ -2237,25 +2096,30 @@ function App({ countingApp = false } = {}) {
           <>
             {loadError ? <p className="user-mgmt-error">{loadError}</p> : null}
             {zaehlSessionId && countingEntryUi ? (
-              <ArticleView
-                ref={articleInventoryRef}
-                key={`${zaehlSessionId}:${zaehlScopeValue || 'all'}`}
-                items={items}
-                selectedCategory={selectedCategory}
-                searchQuery={artikelSearchQuery}
-                activeZaehlSessionId={zaehlSessionId}
-                onSyncError={setZaehlungSyncError}
-                countingApp={countingApp}
-                zaehlScopeKey={effectiveZaehlScope}
-                scrollFocusArticleId={barcodeScrollArticleId}
-                onScrollFocusArticleIdHandled={() => setBarcodeScrollArticleId(null)}
-              />
+              articlesLoading && items.length === 0 ? (
+                <p className="session-message session-message--info" role="status">
+                  Artikelkatalog wird geladen…
+                </p>
+              ) : (
+                <ArticleView
+                  ref={articleInventoryRef}
+                  key={`${zaehlSessionId}:${zaehlScopeValue || 'all'}`}
+                  items={items}
+                  selectedCategory={selectedCategory}
+                  searchQuery={artikelSearchQuery}
+                  activeZaehlSessionId={zaehlSessionId}
+                  onSyncError={setZaehlungSyncError}
+                  countingApp={countingApp}
+                  zaehlScopeKey={effectiveZaehlScope}
+                  scrollFocusArticleId={barcodeScrollArticleId}
+                  onScrollFocusArticleIdHandled={() => setBarcodeScrollArticleId(null)}
+                />
+              )
             ) : (
               <>
                 {countingEntryUi ? (
                   <InventurDashboard
                     refreshTrigger={lastInventurRefresh}
-                    catalogArticleCount={items.length}
                     onJoinOpenSession={joinZaehlSession}
                     currentUser={currentUser}
                   />
@@ -2340,214 +2204,44 @@ function App({ countingApp = false } = {}) {
           </div>
         </div>
       ) : null}
-      {barcodeDialogOpen ? (
-        <div className="barcode-dialog-backdrop" role="presentation" onClick={closeBarcodeDialog}>
-          <div
-            className="barcode-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Barcode erfassen"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="barcode-dialog-title">Barcode erfassen</h3>
-            <p className="barcode-dialog-hint">
-              Barcode eingeben oder live scannen. Treffer nur über das Feld{' '}
-              <code>barcode</code>.
-            </p>
-            <div className="barcode-camera-wrap">
-              <video ref={barcodeVideoRef} className="barcode-camera-video" muted playsInline />
-              {!barcodeScannerActive ? (
-                <div className="barcode-camera-overlay">
-                  {barcodeScannerMessage || 'Kamera wird vorbereitet…'}
-                </div>
-              ) : null}
-            </div>
-            {barcodeScannerMessage ? <p className="barcode-dialog-status">{barcodeScannerMessage}</p> : null}
-            <input
-              ref={barcodeDialogInputRef}
-              type="text"
-              inputMode="numeric"
-              className="barcode-dialog-input"
-              value={barcodeInput}
-              onChange={(e) => setBarcodeInput(e.target.value)}
-              placeholder="Barcode eingeben"
-              aria-label="Barcode eingeben"
-            />
-            <div className="barcode-dialog-actions">
-              <button type="button" className="admin-btn-row" onClick={closeBarcodeDialog}>
-                Schließen
-              </button>
-              <button type="button" className="admin-btn-row admin-btn-row--save" onClick={resolveScannedBarcode}>
-                {barcodeLookupBusy ? 'Prüfe …' : 'Prüfen'}
-              </button>
-            </div>
-            {String(barcodeInput).trim() ? (
-              <div className="barcode-dialog-missing">
-                <p>Kein Artikel mit Barcode <strong>{barcodeInput.trim()}</strong> gefunden.</p>
-                <div className="barcode-dialog-mode-tabs" role="tablist" aria-label="Vorgehen bei unbekanntem Barcode">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={barcodeLinkMode === 'create'}
-                    className={`barcode-dialog-mode-tab${barcodeLinkMode === 'create' ? ' barcode-dialog-mode-tab--active' : ''}`}
-                    onClick={() => {
-                      setBarcodeLinkMode('create')
-                      setBarcodeLinkSelectedId(null)
-                    }}
-                  >
-                    Neu anlegen
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={barcodeLinkMode === 'pick'}
-                    className={`barcode-dialog-mode-tab${barcodeLinkMode === 'pick' ? ' barcode-dialog-mode-tab--active' : ''}`}
-                    onClick={() => setBarcodeLinkMode('pick')}
-                  >
-                    Bestehend verknüpfen
-                  </button>
-                </div>
-                {barcodeLinkMode === 'create' ? (
-                  <>
-                    <p>Neuen Artikel anlegen (Artikelnummer bleibt leer):</p>
-                    <input
-                      type="text"
-                      className="barcode-dialog-input"
-                      value={barcodeLookupName}
-                      onChange={(e) => setBarcodeLookupName(e.target.value)}
-                      placeholder="Artikelname"
-                      aria-label="Artikelname"
-                    />
-                    <div className="barcode-dialog-create-grid">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="barcode-dialog-input"
-                        value={barcodeCreateDraft.preisInput}
-                        onChange={(e) =>
-                          setBarcodeCreateDraft((prev) => ({ ...prev, preisInput: e.target.value }))
-                        }
-                        placeholder="Preis (z. B. 1,99)"
-                        aria-label="Preis"
-                      />
-                      <select
-                        className="barcode-dialog-input"
-                        value={barcodeCreateDraft.einheit}
-                        onChange={(e) =>
-                          setBarcodeCreateDraft((prev) => ({ ...prev, einheit: e.target.value }))
-                        }
-                        aria-label="Einheit"
-                      >
-                        <option value="Stk">Stk</option>
-                        <option value="l">l</option>
-                        <option value="kg">kg</option>
-                        <option value="g">g</option>
-                        <option value="Kiste">Kiste</option>
-                      </select>
-                      <select
-                        className="barcode-dialog-input"
-                        value={barcodeCreateDraft.category}
-                        onChange={(e) =>
-                          setBarcodeCreateDraft((prev) => ({ ...prev, category: e.target.value }))
-                        }
-                        aria-label="Kategorie"
-                      >
-                        <option value="">— Keine —</option>
-                        {categories.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="barcode-dialog-actions">
-                      <button
-                        type="button"
-                        className="admin-btn-row admin-btn-row--save"
-                        onClick={() => void confirmAddBarcodeArtikel()}
-                      >
-                        Artikel anlegen
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="barcode-dialog-hint barcode-dialog-hint--tight">
-                      Barcode <strong>{barcodeInput.trim()}</strong> einem Artikel aus deinem Bestand zuordnen
-                      (Feld <code>barcode</code> wird gesetzt).
-                    </p>
-                    <input
-                      type="search"
-                      className="barcode-dialog-input"
-                      value={barcodeLinkSearch}
-                      onChange={(e) => setBarcodeLinkSearch(e.target.value)}
-                      placeholder="Suche: Name, Artikelnr., Kategorie …"
-                      aria-label="Artikel suchen"
-                      autoComplete="off"
-                    />
-                    <ul className="barcode-dialog-link-list" role="listbox" aria-label="Artikel wählen">
-                      {barcodeLinkCandidates.length === 0 ? (
-                        <li className="barcode-dialog-link-empty">Keine Treffer.</li>
-                      ) : (
-                        barcodeLinkCandidates.map((it) => {
-                          const selected = barcodeLinkSelectedId === it.id
-                          return (
-                            <li key={it.id} role="none">
-                              <button
-                                type="button"
-                                role="option"
-                                aria-selected={selected}
-                                className={`barcode-dialog-link-item${selected ? ' barcode-dialog-link-item--selected' : ''}`}
-                                onClick={() => setBarcodeLinkSelectedId(it.id)}
-                              >
-                                <span className="barcode-dialog-link-item-title">{it.name || '—'}</span>
-                                <span className="barcode-dialog-link-item-meta">
-                                  {it.artikelnummer ? `Nr. ${it.artikelnummer}` : 'Ohne Artikelnr.'}
-                                  {it.category ? ` · ${it.category}` : ''}
-                                  {String(it.barcode ?? '').trim()
-                                    ? ` · bisher: ${String(it.barcode).trim()}`
-                                    : ''}
-                                </span>
-                              </button>
-                            </li>
-                          )
-                        })
-                      )}
-                    </ul>
-                    {barcodeLinkSelectedId ? (
-                      <p className="barcode-dialog-link-preview">
-                        Auswahl:{' '}
-                        <strong>
-                          {items.find((x) => x.id === barcodeLinkSelectedId)?.name || '—'}
-                        </strong>
-                      </p>
-                    ) : null}
-                    <div className="barcode-dialog-actions">
-                      <button
-                        type="button"
-                        className="admin-btn-row"
-                        onClick={() => {
-                          setBarcodeLinkMode('create')
-                          setBarcodeLinkSelectedId(null)
-                        }}
-                      >
-                        Zurück
-                      </button>
-                      <button
-                        type="button"
-                        className="admin-btn-row admin-btn-row--save"
-                        onClick={() => void confirmLinkBarcodeToArtikel()}
-                      >
-                        Barcode zuordnen
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : null}
-            {barcodeLookupMessage ? <p className="barcode-dialog-status">{barcodeLookupMessage}</p> : null}
-          </div>
-        </div>
+      {zaehlSessionId && countingEntryUi ? (
+        <InventurBarcodeScanOverlay
+          open={searchScanOpen}
+          onOpenChange={setSearchScanOpen}
+          onCodeScanned={resolveSearchBarcode}
+        />
+      ) : null}
+      <BarcodeScanDialog
+        open={addArticleDialogOpen}
+        onOpenChange={setAddArticleDialogOpen}
+        initialExpandScan={addArticleExpandScan}
+        items={items}
+        categories={categories}
+        onArticleFound={handleBarcodeArticleFound}
+        onCreateArticle={handleBarcodeCreateArticle}
+        onLinkBarcode={handleBarcodeLinkArticle}
+      />
+      {countingApp && currentUser && userCan(currentUser, 'inventur') ? (
+        <CountingCommandPalette
+          open={countingCommandOpen}
+          onOpenChange={setCountingCommandOpen}
+          context={countingPaletteContext}
+          sessionBusy={sessionBusy}
+          canEndSession={canEndActiveZaehlSession}
+          items={items}
+          categories={categories}
+          selectedCategory={selectedCategory}
+          onStartSession={() => void startZaehlSession()}
+          onEndSession={() => void endZaehlSession()}
+          onJoinSession={(id) => void joinZaehlSession(id)}
+          onOpenBarcode={() => setSearchScanOpen(true)}
+          onFocusSearch={focusInventurSearch}
+          onSelectCategory={setSelectedCategory}
+          onSelectArticle={handleBarcodeArticleFound}
+          onGoInventur={() => handleViewChange('default')}
+          onGoAccount={() => handleViewChange('account')}
+          onLogout={handleLogout}
+        />
       ) : null}
     </>
   )

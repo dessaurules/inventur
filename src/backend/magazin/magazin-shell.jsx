@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
 import { parseArtikelExcelBuffer } from '../../lib/excelArtikelImport'
+import { sortMagazinArticles } from './article-list-sort.js'
 import { ArticleList } from './article-list.jsx'
 import { CommandPalette } from './command-palette.jsx'
 import { DetailDrawer } from './detail-drawer.jsx'
@@ -100,6 +101,7 @@ function expressApiBaseForInvoice() {
   return `http://127.0.0.1:${p}`
 }
 
+/** @param {import('./article-list-sort.js').MagazinSortState} sort */
 function filterAndSort(rows, activeSidebar, query, sort) {
   let list = rows
   if (activeSidebar === '__nocat') {
@@ -124,15 +126,7 @@ function filterAndSort(rows, activeSidebar, query, sort) {
         String(a.nr).includes(q)
     )
   }
-  const out = [...list]
-  if (sort === 'nr') {
-    out.sort((a, b) => a.nr - b.nr || a.name.localeCompare(b.name, 'de'))
-  } else if (sort === 'updated') {
-    out.sort((a, b) => (b.updatedAt?.getTime() ?? 0) - (a.updatedAt?.getTime() ?? 0))
-  } else {
-    out.sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
-  }
-  return out
+  return sortMagazinArticles(list, sort)
 }
 
 /**
@@ -174,7 +168,10 @@ export function MagazinShell({
 
   const [activeSidebar, setActiveSidebar] = useState('all')
   const [listQuery, setListQuery] = useState('')
-  const [sort, setSort] = useState(/** @type {'name' | 'nr' | 'updated'} */ ('name'))
+  const [sort, setSort] = useState(/** @type {import('./article-list-sort.js').MagazinSortState} */ ({
+    key: 'name',
+    dir: 'asc',
+  }))
   const [selectedIds, setSelectedIds] = useState(() => new Set())
   const [activeArticleId, setActiveArticleId] = useState(/** @type {string | null} */ (null))
   const [commandOpen, setCommandOpen] = useState(false)
