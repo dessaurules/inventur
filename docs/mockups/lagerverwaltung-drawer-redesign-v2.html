@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lagerverwaltung Drawer - Redesign v2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    * {
+      --background: hsl(0 0% 100%);
+      --foreground: hsl(0 0% 3.6%);
+      --muted: hsl(0 0% 96.1%);
+      --muted-foreground: hsl(215.4 16.3% 46.9%);
+      --input: hsl(214.3 31.8% 91.4%);
+      --border: hsl(214.3 31.8% 91.4%);
+      --ring: hsl(210 40% 96%);
+      --primary: hsl(210 100% 50%);
+    }
+    body { background: #f5f5f5; }
+    .mock-container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    .sidebar { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .drawer { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); max-height: 700px; overflow-y: auto; }
+    .section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: #6b7280; margin-top: 16px; margin-bottom: 8px; text-transform: uppercase; }
+    .input-header { background: transparent; border: 2px solid transparent; padding: 4px; border-radius: 6px; font-size: 14px; font-weight: 600; color: #1f2937; transition: all 0.2s; }
+    .input-header:hover { border-color: #d1d5db; }
+    .input-header:focus { outline: none; background: white; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1); }
+    .select-field, .input-field { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+    .btn-add { background: #0369a1; color: white; padding: 8px 12px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; }
+    .btn-add:hover { background: #0284c7; }
+    .assignment-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 12.5px; }
+    .btn-remove { color: #dc2626; cursor: pointer; font-size: 12px; }
+    .btn-remove:hover { text-decoration: underline; }
+    .article-item { border-bottom: 1px solid #e5e7eb; padding: 8px 0; display: flex; justify-content: space-between; align-items: center; }
+    .article-item:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+  <div class="mock-container">
+    <div class="grid grid-cols-4 gap-6">
+
+      <!-- Linke Sidebar: Lager-Liste -->
+      <div class="sidebar p-4">
+        <h2 class="text-sm font-bold text-gray-900 mb-4">Lager</h2>
+
+        <div class="space-y-1 mb-4">
+          <div class="p-2 rounded font-medium text-sm" style="background: #e0f2fe; color: #0369a1;">
+            ● Restaurant <span class="text-xs text-gray-600">(2 U-Lager)</span>
+          </div>
+          <div class="p-2 rounded text-sm text-gray-600 hover:bg-gray-100 cursor-pointer">
+            ○ Küche <span class="text-xs text-gray-500">(2 U-Lager)</span>
+          </div>
+          <div class="p-2 rounded text-sm text-gray-600 hover:bg-gray-100 cursor-pointer">
+            ○ Bar <span class="text-xs text-gray-500">(1 U-Lager)</span>
+          </div>
+        </div>
+
+        <button class="w-full text-left p-2 text-blue-600 text-sm rounded hover:bg-blue-50">+ Neues Lager</button>
+      </div>
+
+      <!-- Rechter Drawer: Neu strukturiert -->
+      <div class="drawer col-span-3 p-6">
+
+        <!-- Header mit inline-Edit Lagername -->
+        <div class="border-b border-gray-200 pb-4 mb-6">
+          <label class="text-[11px] font-medium uppercase tracking-wide text-gray-600 block mb-1">Lager</label>
+          <input
+            type="text"
+            value="Restaurant"
+            class="input-header w-full focus:ring-blue-500"
+            style="border: 2px solid transparent; padding: 4px 0;"
+          />
+          <p class="text-xs text-gray-500 mt-1.5">2 Unterlager · 47 Artikel · — Inventuren</p>
+        </div>
+
+        <!-- MITARBEITER SECTION -->
+        <div>
+          <div class="section-title">Mitarbeiter</div>
+          <div class="flex gap-2 mb-4">
+            <select class="select-field flex-1">
+              <option>Nutzer wählen…</option>
+              <option>Ronny Beckmann</option>
+              <option>Steffi Hofmann</option>
+              <option>Franzi Roth</option>
+              <option>Max Mustermann</option>
+            </select>
+            <button class="btn-add">+ Hinzufügen</button>
+          </div>
+
+          <div class="border border-gray-200 rounded p-3 space-y-2">
+            <div class="assignment-item">
+              <span class="text-sm">Ronny Beckmann</span>
+              <span class="btn-remove">[Entfernen]</span>
+            </div>
+            <div class="assignment-item">
+              <span class="text-sm">Steffi Hofmann</span>
+              <span class="btn-remove">[Entfernen]</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ARTIKEL SECTION -->
+        <div class="mt-6">
+          <div class="section-title">Artikel (47)</div>
+
+          <div class="border border-gray-200 rounded p-3 space-y-1" style="max-height: none;">
+            <div class="article-item">
+              <span class="font-medium text-sm">Heineken 0,5l</span>
+              <span class="text-gray-500 text-xs">Stk · 2,50 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Corona Extra 0,33l</span>
+              <span class="text-gray-500 text-xs">Stk · 3,20 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Pils 0,5l</span>
+              <span class="text-gray-500 text-xs">Stk · 2,80 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Cola 0,5l</span>
+              <span class="text-gray-500 text-xs">Stk · 2,20 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Sprite 0,5l</span>
+              <span class="text-gray-500 text-xs">Stk · 2,20 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Fanta Orange 0,5l</span>
+              <span class="text-gray-500 text-xs">Stk · 2,00 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Wasser 0,75l</span>
+              <span class="text-gray-500 text-xs">Stk · 1,50 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Becks 0,5l</span>
+              <span class="text-gray-500 text-xs">Stk · 2,40 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Guinness 0,44l</span>
+              <span class="text-gray-500 text-xs">Stk · 4,10 €</span>
+            </div>
+            <div class="article-item">
+              <span class="font-medium text-sm">Jägermeister 2cl</span>
+              <span class="text-gray-500 text-xs">Stk · 0,85 €</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-3 text-center">… und 37 weitere Artikel</p>
+          </div>
+        </div>
+
+        <!-- UNTERLAGER SECTION -->
+        <div class="mt-6 border-t border-gray-200 pt-6">
+          <div class="section-title">Unterlager</div>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center px-2 py-1 hover:bg-gray-100 rounded cursor-pointer">
+              <span>▸ Kühlbereich</span>
+              <span class="text-gray-400 text-xs">12 Artikel</span>
+            </div>
+            <div class="flex justify-between items-center px-2 py-1 hover:bg-gray-100 rounded cursor-pointer">
+              <span>▸ Lager EG</span>
+              <span class="text-gray-400 text-xs">20 Artikel</span>
+            </div>
+            <button class="text-blue-600 text-xs mt-2 hover:text-blue-700">+ Unterlager hinzufügen</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Info-Box -->
+    <div class="mt-8 p-4 bg-blue-50 rounded border border-blue-200 text-sm">
+      <h3 class="font-bold text-blue-900 mb-2">✓ Neue Features in v2:</h3>
+      <ul class="text-blue-800 space-y-1 ml-4 list-disc">
+        <li><strong>Nutzer-Namen statt E-Mails:</strong> Dropdown zeigt „Ronny Beckmann" statt „ronny.beckmann@..."; Fallback zu E-Mail wenn kein Name gesetzt</li>
+        <li><strong>Inline-Edit Lagername:</strong> Header-Input ist klickbar, speichert mit Enter/Blur, transparent bis zur Änderung</li>
+        <li><strong>Keine Stammdaten-Sektion:</strong> Name ist jetzt nur im Header, Beschreibung wurde entfernt</li>
+        <li><strong>Alle Artikel sichtbar:</strong> Keine Höhenbegrenzung, Liste wächst mit Inhalt, Drawer scrollt</li>
+        <li><strong>Design-System:</strong> Nutzt Projekt-Tailwind + CSS-Variablen für konsistentes Look</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>

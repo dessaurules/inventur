@@ -31,6 +31,15 @@ function userTenantRelationId(record) {
   return null
 }
 
+/** @param {Record<string, unknown> | null | undefined} u */
+function displayUserName(u) {
+  if (!u) return '—'
+  const fn = String(u.first_name ?? '').trim()
+  const ln = String(u.last_name ?? '').trim()
+  const full = [fn, ln].filter(Boolean).join(' ')
+  return full || String(u.email ?? '').trim() || '—'
+}
+
 /**
  * @param {{ readOnly?: boolean, canAssignUsers?: boolean }} [props]
  */
@@ -910,7 +919,16 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   <header className="flex shrink-0 items-start gap-2 border-b border-border px-3 py-2">
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lager</p>
-                      <h3 className="truncate text-sm font-semibold text-foreground">{selectedLager.name}</h3>
+                      <input
+                        className="w-full truncate rounded border border-transparent bg-transparent px-1 text-sm font-semibold text-foreground
+                          hover:border-input focus:border-input focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                        value={lagerNameDraft}
+                        onChange={(e) => setLagerNameDraft(e.target.value)}
+                        onBlur={() => void saveLager()}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                        disabled={readOnly || busy}
+                        aria-label="Lagername"
+                      />
                       <p className="mt-0.5 text-[12px] text-muted-foreground">
                         {unterCount(selectedLager.id)} Unterlager · {artikelCount(selectedLager.id)} Artikel · — Inventuren
                       </p>
@@ -927,46 +945,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
 
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <div className="space-y-4 p-3">
-                    <div>
-                      <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Stammdaten
-                      </h3>
-                      <div className="mt-3 space-y-3">
-                        <div className="grid grid-cols-[140px_1fr] items-center gap-x-3 gap-y-2">
-                          <label htmlFor="lv-lager-name" className="text-[12.5px] text-muted-foreground">
-                            Name
-                          </label>
-                          <input
-                            id="lv-lager-name"
-                            value={lagerNameDraft}
-                            onChange={(e) => setLagerNameDraft(e.target.value)}
-                            disabled={readOnly || busy}
-                            className={cn(
-                              'h-9 rounded-md border border-input bg-background px-3 text-[12.5px]',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                            )}
-                          />
-                          <label htmlFor="lv-lager-desc" className="self-start pt-2 text-[12.5px] text-muted-foreground">
-                            Beschreibung
-                          </label>
-                          <textarea
-                            id="lv-lager-desc"
-                            rows={3}
-                            value={lagerDescDraft}
-                            onChange={(e) => setLagerDescDraft(e.target.value)}
-                            disabled={readOnly || busy}
-                            placeholder="Optionale Notiz zum Lager…"
-                            className={cn(
-                              'resize-y rounded-md border border-input bg-background px-3 py-2 text-[12.5px]',
-                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                            )}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <hr className="border-border" />
-
                     <div>
                       <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Unterlager
@@ -1060,7 +1038,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             <option value="">Nutzer wählen…</option>
                             {users.map((u) => (
                               <option key={u.id} value={u.id}>
-                                {u.email}
+                                {displayUserName(u)}
                               </option>
                             ))}
                           </select>
@@ -1080,7 +1058,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             {assignments
                               .filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId)
                               .map((row) => {
-                              const em = row.expand?.nutzer?.email ?? row.nutzer
+                              const em = row.expand?.nutzer ? displayUserName(row.expand.nutzer) : row.nutzer
                               const l = row.expand?.lager
                               const lab = l?.name ?? row.lager
                               return (
