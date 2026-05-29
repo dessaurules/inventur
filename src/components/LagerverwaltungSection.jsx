@@ -930,7 +930,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                         aria-label="Lagername"
                       />
                       <p className="mt-0.5 text-[12px] text-muted-foreground">
-                        {unterCount(selectedLager.id)} Unterlager · {artikelCount(selectedLager.id)} Artikel · — Inventuren
+                        {unterCount(selectedLager.id)} Unterlager · {lagerArticles.length} Artikel · — Inventuren
                       </p>
                     </div>
                     <button
