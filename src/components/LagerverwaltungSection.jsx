@@ -937,7 +937,10 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             type="button"
                             onClick={() => void addAssignment()}
                             disabled={busy}
-                            className="h-7 shrink-0 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                            className={cn(
+                              'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground',
+                              'hover:opacity-90 disabled:opacity-50'
+                            )}
                           >
                             Hinzufügen
                           </button>
