@@ -4,7 +4,7 @@ import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { Archive, ChevronDown, Download, History, MoreHorizontal, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage'
-import { exportInventurCsv, exportInventurPdf, groupTableRowsByCategory } from '../lib/inventurExport'
+import { exportInventurCsv, exportInventurPdf, groupTableRowsByCategory, aggregateTableRows } from '../lib/inventurExport'
 import {
   loadClosedInventurenWithRows,
   loadInventurSessionLists,
@@ -715,11 +715,12 @@ export function LastInventurView({
         started: row.started || undefined,
         tableRows: row.tableRows,
         lagerLabel: row.ortRaw && row.ortRaw !== 'Alle Lager' ? row.ortRaw : undefined,
+        proUnterlager: panelProUnterlager,
       }
       if (format === 'csv') exportInventurCsv(payload)
       else exportInventurPdf(payload)
     },
-    []
+    [panelProUnterlager]
   )
 
   const refreshInventuren = useCallback(async () => {
@@ -1242,12 +1243,17 @@ export function LastInventurView({
               )}
             </section>
 
+            {(() => {
+              const displayedRows = panelProUnterlager
+                ? selectedRow.tableRows
+                : aggregateTableRows(selectedRow.tableRows)
+              return (
             <section aria-label="Positionen">
               <div className="mb-2 flex items-baseline justify-between gap-2">
                 <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Positionen ({selectedRow.positionenAnzahl})
+                  Positionen ({displayedRows.length})
                 </h3>
-                {selectedRow.tableRows.length > 5 ? (
+                {displayedRows.length > 5 ? (
                   <button
                     type="button"
                     className="text-[12px] font-medium text-primary hover:underline"
@@ -1258,14 +1264,14 @@ export function LastInventurView({
                   </button>
                 ) : null}
               </div>
-              {selectedRow.tableRows.length === 0 ? null : (
+              {displayedRows.length === 0 ? null : (
                 <ul className="space-y-2 text-[12.5px]">
-                  {[...selectedRow.tableRows]
+                  {[...displayedRows]
                     .sort((a, b) => rowGesamtEuro(b) - rowGesamtEuro(a))
                     .slice(0, panelShowAllPositions ? undefined : 5)
                     .map((row, i) => (
                       <li
-                        key={`pos-${row.artikel_id ?? 'x'}-${row.name ?? ''}-${i}`}
+                        key={`pos-${row.artikel_id ?? 'x'}-${row.artikelnummer ?? ''}-${row.name ?? ''}-${i}`}
                         className="grid grid-cols-[1fr_auto_auto] items-center gap-2"
                       >
                         <span className="min-w-0 truncate text-foreground">{row.name ?? '—'}</span>
@@ -1280,6 +1286,8 @@ export function LastInventurView({
                 </ul>
               )}
             </section>
+              )
+            })()}
               </div>
             </ScrollArea.Viewport>
             <ScrollArea.Scrollbar

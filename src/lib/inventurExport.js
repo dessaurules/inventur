@@ -60,9 +60,33 @@ export function ortFromPositionRow(row) {
   return ''
 }
 
-function flattenExportRows(tableRows) {
+export function aggregateTableRows(rows) {
+  const map = new Map()
+  for (const row of rows) {
+    const key =
+      String(row.artikelnummer ?? '').trim() ||
+      String(row.artikel_id ?? '') ||
+      `${String(row.name ?? '')}|${String(row.einheit ?? '')}`
+    if (map.has(key)) {
+      const ex = map.get(key)
+      ex.gezaehlte_menge = Math.round((ex.gezaehlte_menge + (Number(row.gezaehlte_menge) || 0)) * 100) / 100
+    } else {
+      map.set(key, {
+        ...row,
+        unterlager_id: null,
+        unterlager_name: '',
+        lager_id: null,
+        lager_name: '',
+      })
+    }
+  }
+  return [...map.values()]
+}
+
+function flattenExportRows(tableRows, proUnterlager = false) {
+  const rows = proUnterlager ? tableRows : aggregateTableRows(tableRows)
   const flat = []
-  for (const [categoryName, list] of groupTableRowsByCategory(tableRows)) {
+  for (const [categoryName, list] of groupTableRowsByCategory(rows)) {
     for (const row of list) {
       flat.push({
         category: categoryName,
@@ -157,11 +181,11 @@ export function exportInventurCsv(params) {
 }
 
 /**
- * @param {{ nr: number, ended: string | null, started: string | null, tableRows: object[], lagerLabel?: string }} params
+ * @param {{ nr: number, ended: string | null, started: string | null, tableRows: object[], lagerLabel?: string, proUnterlager?: boolean }} params
  */
 export function exportInventurPdf(params) {
-  const { nr, ended, started, tableRows, lagerLabel } = params
-  const flat = flattenExportRows(tableRows)
+  const { nr, ended, started, tableRows, lagerLabel, proUnterlager = false } = params
+  const flat = flattenExportRows(tableRows, proUnterlager)
   const summe = flat.reduce((a, r) => a + r.gesamt, 0)
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
@@ -187,7 +211,7 @@ export function exportInventurPdf(params) {
   }
   doc.setTextColor(0, 0, 0)
 
-  const hasOrt = flat.some((r) => r.ort)
+  const hasOrt = proUnterlager && flat.some((r) => r.ort)
   const pdfHead = hasOrt
     ? [['Kategorie', 'Ort', 'Art.-Nr.', 'Name', 'Einh.', 'Preis €', 'Menge', 'Gesamt €']]
     : [['Kategorie', 'Art.-Nr.', 'Name', 'Einh.', 'Preis €', 'Menge', 'Gesamt €']]
