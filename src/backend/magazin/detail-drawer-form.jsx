@@ -14,6 +14,7 @@ function initialFromArtikel(artikel) {
       stueckProLiefStr: '1',
       artikelnummer: '',
       kategorieId: '',
+      lagerId: '',
     }
   }
   const st = normalizeStueckProLiefergebinde(artikel.stueckProLiefergebinde ?? 1)
@@ -26,6 +27,7 @@ function initialFromArtikel(artikel) {
     stueckProLiefStr: String(st),
     artikelnummer: nr,
     kategorieId: artikel.kategorieId || '',
+    lagerId: artikel.lagerId || '',
   }
 }
 
@@ -34,6 +36,7 @@ function initialFromArtikel(artikel) {
  * @param {import('./types.js').MagazinArtikel | null} props.artikel
  * @param {boolean} props.readOnly
  * @param {string[]} props.kategorieNames
+ * @param {Array<{id:string,name:string}>} [props.lagerList]
  * @param {(patch: object) => Promise<{ ok: boolean, message?: string, id?: string }>} props.onPatch
  * @param {(fields: object) => Promise<{ ok: boolean, message?: string, id?: string }>} [props.onCreate]
  * @param {(status: 'idle' | 'saving' | 'error') => void} props.onSaveStatus
@@ -46,6 +49,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
     artikel,
     readOnly,
     kategorieNames,
+    lagerList = [],
     onPatch,
     onCreate,
     onSaveStatus,
@@ -63,6 +67,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
   const [stueckProLiefStr, setStueckProLiefStr] = useState(init.stueckProLiefStr)
   const [artikelnummer, setArtikelnummer] = useState(init.artikelnummer)
   const [kategorieId, setKategorieId] = useState(init.kategorieId)
+  const [lagerId, setLagerId] = useState(init.lagerId)
 
   const isDraft = artikel?.id === '__new__'
 
@@ -123,6 +128,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
           preis,
           einheit: String(einheit || '').trim() || 'Stk',
           category: String(kategorieId || '').trim(),
+          lagerId: String(lagerId || '').trim(),
           stueckProLiefergebinde: normalizeStueckProLiefergebinde(stueckProLiefStr),
           lieferantenArtnr: nr,
         })
@@ -143,6 +149,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
         preis,
         einheit: String(einheit || '').trim() || 'Stk',
         category: String(kategorieId || '').trim(),
+        lagerId: String(lagerId || '').trim(),
         stueckProLiefergebinde: normalizeStueckProLiefergebinde(stueckProLiefStr),
         lieferantenArtnr: nr,
       })
@@ -165,6 +172,7 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
     stueckProLiefStr,
     artikelnummer,
     kategorieId,
+    lagerId,
     onPatch,
     onCreate,
     onSaveStatus,
@@ -278,24 +286,43 @@ export const DetailDrawerForm = forwardRef(function DetailDrawerForm(
             ))}
           </select>
         </label>
-        <label className="flex flex-1 flex-col gap-0.5">
-          <span className={labelCls}>Kategorie</span>
-          <select
-            className={selectCls}
-            value={kategorieId}
-            onChange={(e) => setKategorieId(e.target.value)}
-            disabled={readOnly}
-            aria-label="Kategorie"
-          >
-            <option value="">— Keine —</option>
-            {kategorieNames.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
+        {lagerList.length > 1 && (
+          <label className="flex flex-1 flex-col gap-0.5">
+            <span className={labelCls}>Lager</span>
+            <select
+              className={selectCls}
+              value={lagerId}
+              onChange={(e) => setLagerId(e.target.value)}
+              disabled={readOnly}
+              aria-label="Lager"
+            >
+              <option value="">— Kein Lager —</option>
+              {lagerList.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
+      <label className="flex flex-col gap-0.5">
+        <span className={labelCls}>Kategorie</span>
+        <select
+          className={selectCls}
+          value={kategorieId}
+          onChange={(e) => setKategorieId(e.target.value)}
+          disabled={readOnly}
+          aria-label="Kategorie"
+        >
+          <option value="">— Keine —</option>
+          {kategorieNames.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
     </form>
   )
 

@@ -6,7 +6,9 @@ import { cn } from '../../lib/cn.js'
  * @param {object} props
  * @param {number} props.count
  * @param {string[]} props.kategorieNames
+ * @param {Array<{id:string,name:string}>} [props.lagerList]
  * @param {(cat: string) => void} props.onSetCategory
+ * @param {(lag: string) => void} [props.onSetLager]
  * @param {() => void} props.onDuplicate
  * @param {() => void} props.onDelete
  * @param {boolean} [props.removeDisabled]
@@ -15,7 +17,9 @@ import { cn } from '../../lib/cn.js'
 export function ArticleListBulkBar({
   count,
   kategorieNames,
+  lagerList = [],
   onSetCategory,
+  onSetLager,
   onDuplicate,
   onDelete,
   removeDisabled,
@@ -58,6 +62,37 @@ export function ArticleListBulkBar({
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+      {lagerList.length > 1 && (
+        <DropdownMenu.Root>
+          <DropdownMenu.Trigger asChild>
+            <button
+              type="button"
+              className={cn(
+                'h-8 rounded-md border border-border bg-background px-2 text-[12.5px] text-foreground',
+                'hover:bg-muted'
+              )}
+            >
+              Lager ändern
+            </button>
+          </DropdownMenu.Trigger>
+          <DropdownMenu.Portal>
+            <DropdownMenu.Content
+              className="z-50 min-w-[10rem] rounded-md border border-border bg-background p-1 shadow-md"
+              sideOffset={4}
+            >
+              {lagerList.map((l) => (
+                <DropdownMenu.Item
+                  key={l.id}
+                  className="cursor-pointer rounded-sm px-2 py-1.5 text-[12.5px] outline-none hover:bg-muted"
+                  onSelect={() => onSetLager?.(l.id)}
+                >
+                  {l.name}
+                </DropdownMenu.Item>
+              ))}
+            </DropdownMenu.Content>
+          </DropdownMenu.Portal>
+        </DropdownMenu.Root>
+      )}
       <button
         type="button"
         className="h-8 rounded-md border border-border bg-background px-2 text-[12.5px] hover:bg-muted"

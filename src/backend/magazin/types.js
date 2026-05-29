@@ -9,6 +9,7 @@
  * @property {number} stueckProLiefergebinde — Zähleinheiten pro Liefergebinde (Rechnung), min. 1
  * @property {string} lieferantenArtnr — optionale Art.-Nr. vom Lieferanten (Import)
  * @property {string|null} kategorieId
+ * @property {string|null} lagerId
  * @property {Date|null} updatedAt
  * @property {string} updatedBy
  * @property {boolean} archived
@@ -73,6 +74,7 @@ export function mapItemToMagazinArtikel(item, updatedBy = '') {
     stueckProLiefergebinde: normalizeStueckProLiefergebinde(item.stueckProLiefergebinde),
     lieferantenArtnr: String(item.lieferantenArtnr ?? '').trim(),
     kategorieId: cat || null,
+    lagerId: String(item.lagerId ?? '').trim() || null,
     updatedAt: item.updatedAt ? new Date(item.updatedAt) : null,
     updatedBy,
     archived: item.archived === true,

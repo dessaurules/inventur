@@ -4,7 +4,7 @@ import { APP_ROLES, normalizeAppRole } from './userCapabilities'
 /**
  * Alle Unterlager, die ein Nutzer zum Start einer Zählsession wählen darf.
  * Admin/Lagerleiter: alle aktiven Unterlager des Mandanten (tenant_id).
- * Rolle inventur: nur über user_unterlager zugewiesene Unterlager.
+ * Rolle inventur: Unterlager der zugewiesenen Lager (user_lager).
  */
 export async function fetchUnterlagerOptionsForZaehlen(pbClient, user) {
   if (!user?.id) return []
@@ -45,17 +45,19 @@ export async function fetchUnterlagerOptionsForZaehlen(pbClient, user) {
     return ul.filter((r) => r.aktiv !== false)
   }
 
-  const links = await pbClient.collection(PB_COLLECTIONS.userUnterlager).getFullList({
+  const lagerLinks = await pbClient.collection(PB_COLLECTIONS.userLager).getFullList({
     filter: `nutzer = "${user.id}"`,
-    expand: 'unterlager.lager',
     requestKey: null,
   })
-  const out = []
-  for (const row of links) {
-    const u = row.expand?.unterlager
-    if (!u?.id || u.aktiv === false) continue
-    out.push(u)
-  }
+  if (lagerLinks.length === 0) return []
+  const or = lagerLinks.map((r) => `lager = "${r.lager}"`).join(' || ')
+  const ul = await pbClient.collection(PB_COLLECTIONS.unterlager).getFullList({
+    filter: `(${or})`,
+    sort: 'sort_index,name',
+    expand: 'lager',
+    requestKey: null,
+  })
+  const out = ul.filter((u) => u.aktiv !== false)
   out.sort((a, b) => {
     const si = (a.sort_index ?? 0) - (b.sort_index ?? 0)
     if (si !== 0) return si

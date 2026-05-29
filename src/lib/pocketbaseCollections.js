@@ -22,4 +22,5 @@ export const PB_COLLECTIONS = {
   lager: import.meta.env.VITE_POCKETBASE_LAGER || 'lager',
   unterlager: import.meta.env.VITE_POCKETBASE_UNTERLAGER || 'unterlager',
   userUnterlager: import.meta.env.VITE_POCKETBASE_USER_UNTERLAGER || 'user_unterlager',
+  userLager: import.meta.env.VITE_POCKETBASE_USER_LAGER || 'user_lager',
 }

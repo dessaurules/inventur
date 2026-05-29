@@ -50,7 +50,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   const [users, setUsers] = useState([])
   const [allUnterlager, setAllUnterlager] = useState([])
   const [assignUserId, setAssignUserId] = useState('')
-  const [assignUnterId, setAssignUnterId] = useState('')
+  const [assignLagerId, setAssignLagerId] = useState('')
   const [assignments, setAssignments] = useState([])
 
   const [activeTab, setActiveTab] = useState(/** @type {'lager' | 'firma' | 'archiv'} */ ('lager'))
@@ -102,9 +102,9 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
       return
     }
     try {
-      const rows = await pb.collection(PB_COLLECTIONS.userUnterlager).getFullList({
-        filter: `unterlager.lager.standort = "${standortId}"`,
-        expand: 'nutzer,unterlager.lager',
+      const rows = await pb.collection(PB_COLLECTIONS.userLager).getFullList({
+        filter: `lager.standort = "${standortId}"`,
+        expand: 'nutzer,lager',
         requestKey: null,
       })
       setAssignments(rows)
@@ -508,14 +508,14 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   }
 
   const addAssignment = async () => {
-    if (!assignUserId || !assignUnterId) return
+    if (!assignUserId || !assignLagerId) return
     setBusy(true)
     try {
-      await pb.collection(PB_COLLECTIONS.userUnterlager).create({
+      await pb.collection(PB_COLLECTIONS.userLager).create({
         nutzer: assignUserId,
-        unterlager: assignUnterId,
+        lager: assignLagerId,
       })
-      setAssignUnterId('')
+      setAssignLagerId('')
       await loadAssignments()
       showFeedback('ok', 'Zuweisung gespeichert.')
     } catch (err) {
@@ -1023,7 +1023,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                     {canAssignUsers ? (
                       <div className="border-t border-border pt-6">
                         <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Nutzer → Unterlager
+                          Nutzer → Lager
                         </h3>
                         <p className="mt-1 text-[12px] text-muted-foreground">
                           Nur Inventur-Rolle: sichtbare Lager im Zähler-Filter.
@@ -1044,16 +1044,16 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             ))}
                           </select>
                           <select
-                            value={assignUnterId}
-                            onChange={(e) => setAssignUnterId(e.target.value)}
+                            value={assignLagerId}
+                            onChange={(e) => setAssignLagerId(e.target.value)}
                             disabled={busy}
                             className="h-9 min-w-[10rem] rounded-md border border-input bg-background px-2 text-[12.5px]"
-                            aria-label="Unterlager"
+                            aria-label="Lager"
                           >
-                            <option value="">Unterlager wählen…</option>
-                            {allUnterlager.map((u) => (
-                              <option key={u.id} value={u.id}>
-                                {formatUnterlagerLabel(u)}
+                            <option value="">Lager wählen…</option>
+                            {lagers.map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.name}
                               </option>
                             ))}
                           </select>
@@ -1072,8 +1072,8 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                           <ul className="mt-2 space-y-1">
                             {assignments.map((row) => {
                               const em = row.expand?.nutzer?.email ?? row.nutzer
-                              const ul = row.expand?.unterlager
-                              const lab = ul ? formatUnterlagerLabel(ul) : row.unterlager
+                              const l = row.expand?.lager
+                              const lab = l?.name ?? row.lager
                               return (
                                 <li
                                   key={row.id}

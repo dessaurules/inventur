@@ -29,6 +29,7 @@ function preisHistorieReloadKey(a) {
  * @param {() => void} props.onClose
  * @param {boolean} props.readOnly
  * @param {string[]} props.kategorieNames
+ * @param {Array<{id:string,name:string}>} [props.lagerList]
  * @param {(patch: object) => Promise<{ ok: boolean, message?: string }>} props.onPatch
  * @param {(fields: object) => Promise<{ ok: boolean, message?: string, id?: string }>} [props.onCreate]
  * @param {(status: 'idle' | 'saving' | 'error') => void} props.onSaveStatus
@@ -47,6 +48,7 @@ export function DetailDrawer({
   blockEscape = false,
   readOnly,
   kategorieNames,
+  lagerList = [],
   onPatch,
   onCreate,
   onSaveStatus,
@@ -127,6 +129,7 @@ export function DetailDrawer({
               artikel={artikel}
               readOnly={readOnly}
               kategorieNames={kategorieNames}
+              lagerList={lagerList}
               onPatch={onPatch}
               onCreate={onCreate}
               onSaveStatus={onSaveStatus}

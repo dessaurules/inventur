@@ -1,29 +1,57 @@
-migrate(
-  (app) => {
-    // Für jeden Tenant: erstes Lager ermitteln, alle Artikel ohne Lager zuweisen
+/// <reference path="../pb_data/types.d.ts" />
+/**
+ * Artikel ohne Lager dem Standard-Lager (erstes, aktives) des Tenants zuweisen.
+ */
+migrate((app) => {
+  // Für jeden Tenant/Standort: erstes Lager ermitteln, Artikel zuweisen
+  try {
     const standorte = app.findAllRecords('standorte')
-    for (const standort of standorte) {
-      const lagerList = app.findAllRecords('lager', new dbx.Exp(
-        'standort = {:standortId} AND aktiv = true',
-        { standortId: standort.id }
-      ))
-      if (!lagerList.length) continue
-      const defaultLager = lagerList.sort(
-        (a, b) => (a.getInt('sort_index') - b.getInt('sort_index')) || a.id.localeCompare(b.id)
-      )[0]
 
-      const artikelOhneLager = app.findAllRecords('artikel', new dbx.Exp(
-        'tenant_id = {:tenantId} AND lager = ""',
-        { tenantId: standort.id }
-      ))
-      for (const artikel of artikelOhneLager) {
-        artikel.set('lager', defaultLager.id)
-        app.save(artikel)
+    for (const standort of standorte) {
+      // Erstes aktives Lager mit sort_index
+      let defaultLager = null
+      let minIndex = Infinity
+
+      try {
+        const allLager = app.findAllRecords('lager')
+        for (const lager of allLager) {
+          if (
+            lager.getString('standort') === standort.id &&
+            lager.getBool('aktiv') === true
+          ) {
+            const sortIndex = lager.getNumber('sort_index') || 0
+            if (sortIndex < minIndex || (sortIndex === minIndex && (!defaultLager || lager.id < defaultLager.id))) {
+              minIndex = sortIndex
+              defaultLager = lager
+            }
+          }
+        }
+      } catch (e) {
+        // Lager nicht vorhanden
+        continue
+      }
+
+      if (!defaultLager) continue
+
+      // Alle Artikel ohne Lager für diesen Tenant updaten
+      try {
+        const articlesWithoutLager = app.findAllRecords('artikel')
+        for (const artikel of articlesWithoutLager) {
+          if (
+            artikel.getString('tenant_id') === standort.id &&
+            (!artikel.getString('lager') || artikel.getString('lager') === '')
+          ) {
+            artikel.set('lager', defaultLager.id)
+            app.save(artikel)
+          }
+        }
+      } catch (e) {
+        // Artikel nicht vorhanden
+        continue
       }
     }
-  },
-  (app) => {
-    // Down: alle Artikel-Lager-Zuordnungen leeren, die durch diese Migration gesetzt wurden
-    // (nicht reversibel ohne zusätzliche Tracking-Tabelle — no-op)
+  } catch (e) {
+    // Standorte nicht vorhanden
   }
-)
+})
+

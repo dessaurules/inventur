@@ -636,6 +636,11 @@
   flex: 1 1 auto;
   min-height: 0;
   padding: 0 0.5rem;
+  font-weight: 700;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
 }
 
 /* Avatar/Einstellungen + Logout-Text unten im Off-Canvas-Menü */
@@ -2446,26 +2451,69 @@
   width: 100%;
   padding: 1rem 1rem;
   text-align: left;
-  border: none;
-  background: transparent;
-  color: #213547;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-  border-radius: 0.5rem;
-}
-
-.side-menu-nav > button:hover {
-  background-color: #f1f5f9;
-}
-
-.side-menu-nav > button.active {
-  background-color: #e2e8f0;
-  font-weight: 600;
-  color: #000;
   border: 0;
+  outline: 0;
+  background: transparent;
+  background-color: transparent;
+  color: #64748b;
+  font-size: 1rem;
+  font-weight: inherit;
+  font-synthesis: weight;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s;
+  border-radius: 0;
   box-shadow: none;
+}
+
+.side-menu-nav > button:hover:not(.active) {
+  background: transparent;
+  background-color: transparent;
+  color: #0f172a;
+  border: 0;
+}
+
+/* Aktiv: fetter dunkler Text, kein Kasten/Hintergrund */
+.side-menu-nav > button.active,
+.side-menu-nav > button.active:hover,
+.side-menu-nav > button.active:focus,
+.side-menu-nav > button.active:focus-visible {
+  font-weight: inherit;
+  color: #0f172a;
+  background: transparent;
+  background-color: transparent;
+  border: 0;
+  outline: 0;
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+.side-menu-nav > button:focus,
+.side-menu-nav > button:focus-visible {
+  outline: 0;
+  outline-offset: 0;
+  box-shadow: none;
+}
+
+nav.side-menu .side-menu-nav > button,
+nav.side-menu .side-menu-nav > button.active,
+nav.side-menu .side-menu-nav > button:hover,
+nav.side-menu .side-menu-nav > button:focus,
+nav.side-menu .side-menu-nav > button:focus-visible {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  border-color: transparent !important;
+  outline: 0 !important;
+  outline-width: 0 !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  --tw-ring-width: 0 !important;
+  --tw-ring-offset-width: 0 !important;
+  --tw-ring-shadow: 0 0 #0000 !important;
+  --tw-ring-color: transparent !important;
 }
 
 main {

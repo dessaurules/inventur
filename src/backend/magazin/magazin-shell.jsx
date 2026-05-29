@@ -6,12 +6,15 @@ import { sortMagazinArticles } from './article-list-sort.js'
 import { ArticleList } from './article-list.jsx'
 import { CommandPalette } from './command-palette.jsx'
 import { DetailDrawer } from './detail-drawer.jsx'
+import { LagerSelector } from './lager-selector.jsx'
 import { SidebarCategories } from './sidebar-categories.jsx'
 import { isEditableTarget, useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts.js'
 import { InvoiceImportDialog } from './invoice-import-dialog.jsx'
 import { BulkActionsPanel } from './bulk-actions-panel.jsx'
 import { RemoveArtikelChoiceDialog } from './remove-artikel-choice-dialog.jsx'
 import { artikelMatchesSmartNoCat, mapItemToMagazinArtikel, normalizeStueckProLiefergebinde } from './types.js'
+import { pb } from '../../lib/pocketbase.js'
+import { PB_COLLECTIONS } from '../../lib/pocketbaseCollections.js'
 
 /**
  * Bestätigungs-Dialog zum Löschen einer Kategorie.
@@ -152,9 +155,30 @@ export function MagazinShell({
   const canMutate = !readOnlyMagazin
   const uLabel = userLabel(currentUser)
 
+  const [lagerList, setLagerList] = useState(/** @type {Array<{id:string,name:string}>} */ ([]))
+  const [selectedLagerId, setSelectedLagerId] = useState(/** @type {string|null} */ (null))
+
+  useEffect(() => {
+    const tenantId = currentUser?.tenantId
+    if (!tenantId) return
+    pb.collection(PB_COLLECTIONS.lager)
+      .getFullList({ filter: `standort = "${tenantId}"`, sort: 'sort_index,name' })
+      .then((list) => {
+        const activeLager = list.filter((l) => l.getBool('aktiv') === true)
+        setLagerList(activeLager.map((l) => ({ id: l.id, name: l.getString('name') })))
+        setSelectedLagerId((prev) => prev ?? (activeLager[0]?.id ?? null))
+      })
+      .catch(() => {})
+  }, [currentUser?.tenantId])
+
+  const lagerFilteredItems = useMemo(() => {
+    if (!selectedLagerId) return items
+    return items.filter((it) => it.lagerId === selectedLagerId)
+  }, [items, selectedLagerId])
+
   const baseArticles = useMemo(
-    () => items.map((it) => mapItemToMagazinArtikel(it, uLabel)),
-    [items, uLabel]
+    () => lagerFilteredItems.map((it) => mapItemToMagazinArtikel(it, uLabel)),
+    [lagerFilteredItems, uLabel]
   )
 
   const invoiceLinkArticles = useMemo(
@@ -220,9 +244,14 @@ export function MagazinShell({
     return m
   }, [baseArticles])
 
+  const lagerFilteredArchivedItems = useMemo(() => {
+    if (!selectedLagerId) return archivedItems
+    return archivedItems.filter((it) => it.lagerId === selectedLagerId)
+  }, [archivedItems, selectedLagerId])
+
   const archivedArticles = useMemo(
-    () => archivedItems.map((it) => mapItemToMagazinArtikel(it, uLabel)),
-    [archivedItems, uLabel]
+    () => lagerFilteredArchivedItems.map((it) => mapItemToMagazinArtikel(it, uLabel)),
+    [lagerFilteredArchivedItems, uLabel]
   )
 
   const smartCounts = useMemo(() => {
@@ -234,15 +263,27 @@ export function MagazinShell({
     return [nocat, recent, archivedArticles.length]
   }, [baseArticles, archivedArticles])
 
+  const localCategoryNames = useMemo(() => {
+    const seen = new Set()
+    const names = []
+    for (const a of baseArticles) {
+      if (a.kategorieId && !seen.has(a.kategorieId)) {
+        seen.add(a.kategorieId)
+        names.push(a.kategorieId)
+      }
+    }
+    return names.sort()
+  }, [baseArticles])
+
   const orderedCategoryNames = useMemo(() => {
-    const set = new Set(categoryNamesIn)
-    const base = [...categoryNamesIn]
+    const set = new Set(localCategoryNames)
+    const base = [...localCategoryNames]
     if (categoryOrder?.length) {
       const rest = base.filter((c) => !categoryOrder.includes(c))
       return [...categoryOrder.filter((c) => set.has(c)), ...rest]
     }
     return base
-  }, [categoryNamesIn, categoryOrder])
+  }, [localCategoryNames, categoryOrder])
 
   const filteredRows = useMemo(
     () => filterAndSort(
@@ -352,7 +393,7 @@ export function MagazinShell({
         preis: patch.preis,
         einheit: patch.einheit,
         category: patch.category,
-        lagerId: raw.lagerId ?? '',
+        lagerId: patch.lagerId ?? raw.lagerId ?? '',
         unterlagerId: raw.unterlagerId ?? '',
         stueckProLiefergebinde: patch.stueckProLiefergebinde,
         lieferantenArtnr: patch.lieferantenArtnr,
@@ -369,7 +410,7 @@ export function MagazinShell({
         preis: fields.preis,
         einheit: fields.einheit,
         category: fields.category,
-        lagerId: '',
+        lagerId: selectedLagerId || '',
         unterlagerId: '',
         stueckProLiefergebinde: fields.stueckProLiefergebinde,
         lieferantenArtnr: fields.lieferantenArtnr,
@@ -379,7 +420,7 @@ export function MagazinShell({
       }
       return res
     },
-    [onCreateArtikel]
+    [onCreateArtikel, selectedLagerId]
   )
 
   const onCreated = useCallback((id) => {
@@ -469,6 +510,32 @@ export function MagazinShell({
       }
     }
     toast.success('Kategorie aktualisiert.')
+    setSelectedIds(new Set())
+  }
+
+  const bulkSetLager = async (lagerId) => {
+    if (!canMutate) return
+    for (const id of selectedIds) {
+      const raw = rawById(id)
+      if (!raw) continue
+      const r = await onUpdateArtikel({
+        id,
+        artikelnummer: raw.artikelnummer,
+        name: raw.name,
+        preis: raw.preis,
+        einheit: raw.einheit,
+        category: raw.category ?? '',
+        lagerId,
+        unterlagerId: raw.unterlagerId ?? '',
+        stueckProLiefergebinde: raw.stueckProLiefergebinde ?? 1,
+        lieferantenArtnr: raw.lieferantenArtnr ?? '',
+      })
+      if (!r?.ok) {
+        toast.error(r?.message || 'Lager setzen fehlgeschlagen.')
+        return
+      }
+    }
+    toast.success('Lager aktualisiert.')
     setSelectedIds(new Set())
   }
 
@@ -735,19 +802,29 @@ export function MagazinShell({
         </div>
       ) : null}
       <div className="flex min-h-0 min-w-0 flex-1">
-        <SidebarCategories
-          categoryNames={orderedCategoryNames}
-          countsByCategory={countsByCategory}
-          activeSidebar={activeSidebar}
-          onSelectSidebar={setActiveSidebar}
-          smartCounts={smartCounts}
-          onAddCategory={addCategoryPrompt}
-          onRenameCategory={(from, to) => {
-            void onRenameCategory(from, to)
-          }}
-          onDeleteCategory={canMutate ? deleteCategoryPrompt : undefined}
-          onCategoryOrderChange={setCategoryOrder}
-        />
+        <div className="flex min-h-0 min-w-0 shrink-0 flex-col">
+          <LagerSelector
+            lagerList={lagerList}
+            selectedId={selectedLagerId}
+            onSelect={(id) => {
+              setSelectedLagerId(id)
+              setActiveSidebar('all')
+            }}
+          />
+          <SidebarCategories
+            categoryNames={orderedCategoryNames}
+            countsByCategory={countsByCategory}
+            activeSidebar={activeSidebar}
+            onSelectSidebar={setActiveSidebar}
+            smartCounts={smartCounts}
+            onAddCategory={addCategoryPrompt}
+            onRenameCategory={(from, to) => {
+              void onRenameCategory(from, to)
+            }}
+            onDeleteCategory={canMutate ? deleteCategoryPrompt : undefined}
+            onCategoryOrderChange={setCategoryOrder}
+          />
+        </div>
         <div ref={listWrapRef} className="flex min-w-0 flex-1 flex-col">
           <ArticleList
             title={listTitle}
@@ -769,7 +846,9 @@ export function MagazinShell({
             bulk={{
               count: selectedIds.size,
               kategorieNames: orderedCategoryNames,
+              lagerList,
               onSetCategory: (c) => void bulkSetCategory(c),
+              onSetLager: (l) => void bulkSetLager(l),
               onDuplicate: () => void bulkDuplicate(),
               onDelete: () => setBulkRemoveDialogOpen(true),
               removeDisabled: bulkRemoveDisabled,
@@ -781,7 +860,9 @@ export function MagazinShell({
           <BulkActionsPanel
             count={selectedIds.size}
             kategorieNames={orderedCategoryNames}
+            lagerList={lagerList}
             onSetCategory={(c) => bulkSetCategory(c)}
+            onSetLager={(l) => bulkSetLager(l)}
             onDuplicate={() => bulkDuplicate()}
             onBeginRemove={() => setBulkRemoveDialogOpen(true)}
             removeDisabled={bulkRemoveDisabled}
@@ -796,6 +877,7 @@ export function MagazinShell({
             blockEscape={commandOpen}
             readOnly={!canMutate}
             kategorieNames={orderedCategoryNames}
+            lagerList={lagerList}
             onPatch={patchArticle}
             onCreate={createArticle}
             onSaveStatus={setSaveStatus}

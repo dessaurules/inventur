@@ -467,6 +467,23 @@ function App({ countingApp = false } = {}) {
     if (!menuOpen) setSettingsMenuOpen(false)
   }, [menuOpen])
 
+  /** Ab 768px: horizontale Kopfzeile (backend.css), nicht nur Off-Canvas – gilt für index.html und backend.html */
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mq = window.matchMedia('(min-width: 768px)')
+    const syncDesktopHeader = () => {
+      const desktop = mq.matches
+      document.body.classList.toggle('backend-desktop', desktop)
+      if (desktop) setMenuOpen(false)
+    }
+    syncDesktopHeader()
+    mq.addEventListener('change', syncDesktopHeader)
+    return () => {
+      mq.removeEventListener('change', syncDesktopHeader)
+      document.body.classList.remove('backend-desktop')
+    }
+  }, [])
+
   useEffect(() => {
     const id = currentUser?.id ?? null
     if (id && prevAuthUserIdRef.current == null) {
@@ -1535,10 +1552,20 @@ function App({ countingApp = false } = {}) {
         return { ok: false, message: 'Bitte einen gültigen Preis eingeben.' }
       }
       const confirmMsg = barcode
-        ? `Neuen Artikel „${trimmedName}“ mit Barcode ${barcode} anlegen?`
-        : `Neuen Artikel „${trimmedName}“ anlegen?`
+        ? `Neuen Artikel „${trimmedName}” mit Barcode ${barcode} anlegen?`
+        : `Neuen Artikel „${trimmedName}” anlegen?`
       if (!window.confirm(confirmMsg)) {
         return { ok: false }
+      }
+      // lagerId aus aktiver Zählung ableiten
+      let derivedLagerId = ''
+      if (zaehlScopeValue && zaehlScopeValue.startsWith('u:')) {
+        const unterlagerId = zaehlScopeValue.slice(2)
+        const ul = zaehlScopeUnterlagers.find((u) => u.id === unterlagerId)
+        if (ul) derivedLagerId = lagerIdFromUnterlagerRecord(ul)
+      }
+      if (!derivedLagerId && zaehlScopeUnterlagers.length > 0) {
+        derivedLagerId = lagerIdFromUnterlagerRecord(zaehlScopeUnterlagers[0])
       }
       const res = await handleCreateArtikel({
         artikelnummer: '',
@@ -1547,16 +1574,16 @@ function App({ countingApp = false } = {}) {
         preis,
         einheit,
         category,
-        lagerId: '',
+        lagerId: derivedLagerId,
         unterlagerId: '',
       })
       if (res.ok) {
-        setSessionMessage(`Artikel „${trimmedName}“ wurde angelegt.`)
+        setSessionMessage(`Artikel „${trimmedName}” wurde angelegt.`)
         return { ok: true }
       }
       return { ok: false, message: res.message || 'Artikel konnte nicht angelegt werden.' }
     },
-    [handleCreateArtikel]
+    [handleCreateArtikel, zaehlScopeValue, zaehlScopeUnterlagers]
   )
 
   const handleBarcodeLinkArticle = useCallback(

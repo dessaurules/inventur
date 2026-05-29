@@ -9,7 +9,9 @@ import { cn } from '../../lib/cn.js'
  * @param {object} props
  * @param {number} props.count
  * @param {string[]} props.kategorieNames
+ * @param {Array<{id:string,name:string}>} [props.lagerList]
  * @param {(cat: string) => Promise<void>} props.onSetCategory
+ * @param {(lag: string) => Promise<void>} [props.onSetLager]
  * @param {() => Promise<void>} props.onDuplicate
  * @param {() => void} props.onBeginRemove – öffnet Dialog (Archivieren / endgültig löschen) am Parent
  * @param {() => Promise<void>} [props.onRestore]
@@ -19,7 +21,9 @@ import { cn } from '../../lib/cn.js'
 export function BulkActionsPanel({
   count,
   kategorieNames,
+  lagerList = [],
   onSetCategory,
+  onSetLager,
   onDuplicate,
   onBeginRemove,
   onRestore,
@@ -28,12 +32,20 @@ export function BulkActionsPanel({
 }) {
   const [restoreBusy, setRestoreBusy] = useState(false)
   const [categoryBusy, setCategoryBusy] = useState(false)
+  const [lagerBusy, setLagerBusy] = useState(false)
   const [duplicateBusy, setDuplicateBusy] = useState(false)
 
   const handleSetCategory = async (cat) => {
     setCategoryBusy(true)
     await onSetCategory(cat)
     setCategoryBusy(false)
+  }
+
+  const handleSetLager = async (lag) => {
+    if (!onSetLager) return
+    setLagerBusy(true)
+    await onSetLager(lag)
+    setLagerBusy(false)
   }
 
   const handleRestore = async () => {
@@ -109,6 +121,33 @@ export function BulkActionsPanel({
                 </ul>
               )}
             </section>
+
+            {/* Lager zuweisen */}
+            {lagerList.length > 1 && (
+              <section aria-label="Lager zuweisen">
+                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <Tag className="h-3 w-3" />
+                  Lager zuweisen
+                </p>
+                <ul className="rounded-md border border-border">
+                  {lagerList.map((lag, i) => (
+                    <li key={lag.id}>
+                      <button
+                        type="button"
+                        onClick={() => handleSetLager(lag.id)}
+                        disabled={lagerBusy}
+                        className={cn(
+                          'w-full px-3 py-2 text-left text-[12.5px] text-foreground hover:bg-muted disabled:opacity-50',
+                          i < lagerList.length - 1 && 'border-b border-border'
+                        )}
+                      >
+                        {lag.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
           </div>
         </ScrollArea.Viewport>

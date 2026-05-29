@@ -1,4 +1,6 @@
 import './index.css'
+/* Desktop-Kopfzeile (side-menu horizontal) – auch für index.html ab 768px via body.backend-desktop */
+import './backend.css'
 import App from './App.jsx'
 import { mountApp } from './mountApp.jsx'
 
