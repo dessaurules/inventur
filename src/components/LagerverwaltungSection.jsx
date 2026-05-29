@@ -944,21 +944,15 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                     <div className="space-y-3 p-3">
                     {canAssignUsers ? (
                       <div className="border-t border-border pt-4">
-                        <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Nutzer → Lager
-                        </h3>
-                        <p className="mt-1 text-[12px] text-muted-foreground">
-                          Nur Inventur-Rolle: sichtbare Lager im Zähler-Filter.
-                        </p>
-                        <div className="mt-3 flex flex-wrap gap-2">
+                        <div className="flex gap-2">
                           <select
                             value={assignUserId}
                             onChange={(e) => setAssignUserId(e.target.value)}
                             disabled={busy}
-                            className="h-9 rounded-md border border-input bg-background px-2 text-[12.5px]"
+                            className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-[12px]"
                             aria-label="Nutzer"
                           >
-                            <option value="">Nutzer wählen…</option>
+                            <option value="">Nutzer hinzufügen …</option>
                             {users.map((u) => (
                               <option key={u.id} value={u.id}>
                                 {displayUserName(u)}
@@ -969,37 +963,25 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             type="button"
                             onClick={() => void addAssignment()}
                             disabled={busy}
-                            className="h-9 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                            className="h-8 shrink-0 rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                           >
-                            Zuweisen
+                            Hinzufügen
                           </button>
                         </div>
                         {assignments.filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId).length === 0 ? (
-                          <p className="mt-2 text-[12px] text-muted-foreground">Keine Zuweisungen.</p>
+                          <p className="mt-1.5 text-[12px] text-muted-foreground">—</p>
                         ) : (
-                          <ul className="mt-2 space-y-1">
+                          <ul className="mt-1.5 space-y-0.5">
                             {assignments
                               .filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId)
                               .map((row) => {
                               const em = row.expand?.nutzer ? displayUserName(row.expand.nutzer) : row.nutzer
-                              const l = row.expand?.lager
-                              const lab = l?.name ?? row.lager
                               return (
                                 <li
                                   key={row.id}
-                                  className="flex items-center justify-between gap-2 text-[12.5px] text-foreground"
+                                  className="text-[12px] text-foreground"
                                 >
-                                  <span>
-                                    {em} → {lab}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="text-[12px] text-destructive hover:underline"
-                                    disabled={busy}
-                                    onClick={() => void removeAssignment(row.id)}
-                                  >
-                                    Entfernen
-                                  </button>
+                                  {em}
                                 </li>
                               )
                             })}
@@ -1012,38 +994,35 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                       <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Unterlager
                       </h3>
-                      <p className="mt-1 text-[12px] text-muted-foreground">
-                        Bereiche innerhalb von ‚{selectedLager.name}'
-                      </p>
-                      <div className="mt-3 overflow-hidden rounded-md border border-border">
+                      <div className="mt-2 overflow-hidden rounded-md border border-border">
                         <ul>
                           {(unterByLager[selectedLager.id] || []).map((u, idx, arr) => (
                             <li
                               key={u.id}
                               className={cn(
-                                'flex items-center justify-between gap-2 px-3 py-2',
+                                'flex items-center justify-between gap-2 px-2.5 py-1.5',
                                 idx < arr.length - 1 && 'border-b border-border'
                               )}
                             >
-                              <span className="min-w-0 flex-1 text-[12.5px] font-medium text-foreground">{u.name}</span>
+                              <span className="min-w-0 flex-1 text-[12px] font-medium text-foreground">{u.name}</span>
                               <div className="flex shrink-0 items-center gap-0.5">
                                 <button
                                   type="button"
                                   disabled
                                   title="Bearbeitung folgt"
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground opacity-40"
+                                  className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-40"
                                 >
-                                  <Pencil className="h-[13px] w-[13px]" aria-hidden />
+                                  <Pencil className="h-3 w-3" aria-hidden />
                                 </button>
                                 {readOnly ? null : (
                                   <button
                                     type="button"
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
+                                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
                                     onClick={() => void removeUnterlager(u.id)}
                                     disabled={busy}
                                     aria-label="Unterlager entfernen"
                                   >
-                                    <X className="h-[13px] w-[13px]" aria-hidden />
+                                    <X className="h-3 w-3" aria-hidden />
                                   </button>
                                 )}
                               </div>
@@ -1051,17 +1030,17 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                           ))}
                         </ul>
                         {readOnly ? null : (
-                          <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
+                          <div className="flex gap-1.5 border-t border-border bg-muted/40 px-2.5 py-1.5">
                             <input
                               type="text"
                               value={newUnter[selectedLager.id] ?? ''}
                               onChange={(e) =>
                                 setNewUnter((prev) => ({ ...prev, [selectedLager.id]: e.target.value }))
                               }
-                              placeholder="Neues Unterlager (z.B. Küche)"
+                              placeholder="Neues Unterlager …"
                               disabled={busy}
                               className={cn(
-                                'h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-[12.5px]',
+                                'h-7 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]',
                                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                               )}
                             />
@@ -1070,11 +1049,11 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                               onClick={() => void addUnterlager(selectedLager.id)}
                               disabled={busy}
                               className={cn(
-                                'inline-flex h-9 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground',
+                                'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground',
                                 'hover:opacity-90 disabled:opacity-50'
                               )}
                             >
-                              <Plus className="h-3.5 w-3.5" aria-hidden />
+                              <Plus className="h-3 w-3" aria-hidden />
                               Hinzufügen
                             </button>
                           </div>
@@ -1085,41 +1064,33 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   </div>
 
                   {readOnly ? null : (
-                    <footer
-                      className={cn(
-                        'mt-auto flex shrink-0 flex-wrap items-center gap-2 border-t border-border px-5 py-3',
-                        'justify-between'
-                      )}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => void deleteLagerHard(selectedLager.id)}
-                        disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-md bg-transparent px-2 py-1.5 text-[12.5px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                        Löschen
-                      </button>
-                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <footer className="mt-auto flex shrink-0 flex-col gap-1 border-t border-border px-2.5 py-2">
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => void deleteLagerHard(selectedLager.id)}
+                          disabled={busy}
+                          className="inline-flex h-7 items-center gap-0.5 rounded px-2 text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3 w-3" aria-hidden />
+                          Löschen
+                        </button>
                         <button
                           type="button"
                           onClick={() => void archiveLager()}
                           disabled={busy}
-                          className="inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-3 text-[12.5px] font-medium hover:bg-muted disabled:opacity-50"
+                          className="inline-flex h-7 items-center gap-0.5 rounded border border-border bg-background px-2 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
                         >
-                          <Archive className="h-3.5 w-3.5" aria-hidden />
+                          <Archive className="h-3 w-3" aria-hidden />
                           Archivieren
                         </button>
-                        {lagerDirty ? (
-                          <span className="hidden text-[12px] text-muted-foreground sm:inline">
-                            Nicht gespeichert
-                          </span>
-                        ) : null}
+                      </div>
+                      <div className="flex gap-1">
                         <button
                           type="button"
                           onClick={discardLager}
                           disabled={busy || !lagerDirty}
-                          className="h-8 rounded-md border border-border bg-background px-3 text-[12.5px] hover:bg-muted disabled:opacity-50"
+                          className="h-7 flex-1 rounded border border-border bg-background text-[11px] hover:bg-muted disabled:opacity-50"
                         >
                           Verwerfen
                         </button>
@@ -1128,11 +1099,11 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                           onClick={() => void saveLager()}
                           disabled={busy || !lagerDirty}
                           className={cn(
-                            'inline-flex h-8 items-center gap-1 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground',
+                            'inline-flex h-7 items-center gap-0.5 rounded bg-primary px-2.5 text-[11px] font-medium text-primary-foreground',
                             'hover:opacity-90 disabled:opacity-50'
                           )}
                         >
-                          <Check className="h-3.5 w-3.5" aria-hidden />
+                          <Check className="h-3 w-3" aria-hidden />
                           Speichern
                         </button>
                       </div>
