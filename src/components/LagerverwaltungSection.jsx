@@ -945,80 +945,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
 
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <div className="space-y-4 p-3">
-                    <div>
-                      <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Unterlager
-                      </h3>
-                      <p className="mt-1 text-[12px] text-muted-foreground">
-                        Bereiche innerhalb von ‚{selectedLager.name}‘
-                      </p>
-                      <div className="mt-3 overflow-hidden rounded-md border border-border">
-                        <ul>
-                          {(unterByLager[selectedLager.id] || []).map((u, idx, arr) => (
-                            <li
-                              key={u.id}
-                              className={cn(
-                                'flex items-center justify-between gap-2 px-3 py-2',
-                                idx < arr.length - 1 && 'border-b border-border'
-                              )}
-                            >
-                              <span className="min-w-0 flex-1 text-[12.5px] font-medium text-foreground">{u.name}</span>
-                              <div className="flex shrink-0 items-center gap-0.5">
-                                <button
-                                  type="button"
-                                  disabled
-                                  title="Bearbeitung folgt"
-                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground opacity-40"
-                                >
-                                  <Pencil className="h-[13px] w-[13px]" aria-hidden />
-                                </button>
-                                {readOnly ? null : (
-                                  <button
-                                    type="button"
-                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
-                                    onClick={() => void removeUnterlager(u.id)}
-                                    disabled={busy}
-                                    aria-label="Unterlager entfernen"
-                                  >
-                                    <X className="h-[13px] w-[13px]" aria-hidden />
-                                  </button>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                        {readOnly ? null : (
-                          <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
-                            <input
-                              type="text"
-                              value={newUnter[selectedLager.id] ?? ''}
-                              onChange={(e) =>
-                                setNewUnter((prev) => ({ ...prev, [selectedLager.id]: e.target.value }))
-                              }
-                              placeholder="Neues Unterlager (z.B. Küche)"
-                              disabled={busy}
-                              className={cn(
-                                'h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-[12.5px]',
-                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                              )}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void addUnterlager(selectedLager.id)}
-                              disabled={busy}
-                              className={cn(
-                                'inline-flex h-9 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground',
-                                'hover:opacity-90 disabled:opacity-50'
-                              )}
-                            >
-                              <Plus className="h-3.5 w-3.5" aria-hidden />
-                              Hinzufügen
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
                     {canAssignUsers ? (
                       <div className="border-t border-border pt-6">
                         <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -1108,6 +1034,80 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                         )}
                       </div>
                     ) : null}
+
+                    <div className="border-t border-border pt-6">
+                      <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Unterlager
+                      </h3>
+                      <p className="mt-1 text-[12px] text-muted-foreground">
+                        Bereiche innerhalb von ‚{selectedLager.name}'
+                      </p>
+                      <div className="mt-3 overflow-hidden rounded-md border border-border">
+                        <ul>
+                          {(unterByLager[selectedLager.id] || []).map((u, idx, arr) => (
+                            <li
+                              key={u.id}
+                              className={cn(
+                                'flex items-center justify-between gap-2 px-3 py-2',
+                                idx < arr.length - 1 && 'border-b border-border'
+                              )}
+                            >
+                              <span className="min-w-0 flex-1 text-[12.5px] font-medium text-foreground">{u.name}</span>
+                              <div className="flex shrink-0 items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  disabled
+                                  title="Bearbeitung folgt"
+                                  className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground opacity-40"
+                                >
+                                  <Pencil className="h-[13px] w-[13px]" aria-hidden />
+                                </button>
+                                {readOnly ? null : (
+                                  <button
+                                    type="button"
+                                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive"
+                                    onClick={() => void removeUnterlager(u.id)}
+                                    disabled={busy}
+                                    aria-label="Unterlager entfernen"
+                                  >
+                                    <X className="h-[13px] w-[13px]" aria-hidden />
+                                  </button>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        {readOnly ? null : (
+                          <div className="flex items-center gap-2 border-t border-border bg-muted/40 px-3 py-2">
+                            <input
+                              type="text"
+                              value={newUnter[selectedLager.id] ?? ''}
+                              onChange={(e) =>
+                                setNewUnter((prev) => ({ ...prev, [selectedLager.id]: e.target.value }))
+                              }
+                              placeholder="Neues Unterlager (z.B. Küche)"
+                              disabled={busy}
+                              className={cn(
+                                'h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-[12.5px]',
+                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                              )}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => void addUnterlager(selectedLager.id)}
+                              disabled={busy}
+                              className={cn(
+                                'inline-flex h-9 shrink-0 items-center gap-1 rounded-md bg-primary px-3 text-[12.5px] font-medium text-primary-foreground',
+                                'hover:opacity-90 disabled:opacity-50'
+                              )}
+                            >
+                              <Plus className="h-3.5 w-3.5" aria-hidden />
+                              Hinzufügen
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     </div>
                   </div>
 
