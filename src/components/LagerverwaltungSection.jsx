@@ -596,11 +596,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         </h2>
         {pbAdmin && !readOnly ? (
           <div className="mt-3 space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Deinem Admin-Konto fehlt ein Mandant (Standort). Lege hier ein Unternehmen an — anschließend kannst du
-              Lager und Unterlager verwalten. Deine <code className="rounded bg-muted px-1 text-xs">tenant_id</code>{' '}
-              wird automatisch gesetzt, falls sie noch leer ist.
-            </p>
             {feedback.text ? (
               <p
                 className={cn(
@@ -690,10 +685,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
           Lagerverwaltung
         </span>
       </div>
-
-      <p className="shrink-0 border-b border-border bg-background px-3 py-2 text-[12px] leading-snug text-muted-foreground">
-        Lager und Unterlager pflegen. Im Magazin ordnest du Artikel einem Lager zu; in der Inventur filterst du danach.
-      </p>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
         <header className="shrink-0 space-y-2 border-b border-border px-3 py-2">
