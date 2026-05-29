@@ -861,13 +861,11 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
               <div className="min-h-0 flex-1 overflow-auto bg-background" role="region" aria-label="Lagerliste">
                 <div
                   className={cn(
-                    'sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_4.5rem_5.5rem] gap-2 border-b border-border bg-background px-3 py-2',
-                    'text-[11px] font-medium uppercase tracking-wide text-muted-foreground'
+                    'sticky top-0 z-10 border-b border-border bg-background px-3 py-1.5',
+                    'text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground'
                   )}
                 >
-                  <span>Name</span>
-                  <span className="text-right">U-Lager</span>
-                  <span className="text-right">Artikel</span>
+                  <span>Lager</span>
                 </div>
                 {filteredSidebarLagers.length === 0 ? (
                   <p className="p-8 text-center text-[12.5px] text-muted-foreground">Keine Lager.</p>
@@ -883,15 +881,13 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             type="button"
                             onClick={() => setSelectedLagerId(l.id)}
                             className={cn(
-                              'grid w-full grid-cols-[minmax(0,1fr)_4.5rem_5.5rem] gap-2 border-b border-border px-3 py-1.5 text-left text-[12.5px] transition-colors',
+                              'flex w-full items-center border-b border-border px-3 py-1 text-left text-[12.5px] transition-colors',
                               active
                                 ? 'border-l-2 border-l-primary bg-muted'
                                 : 'border-l-2 border-l-transparent hover:bg-muted/50'
                             )}
                           >
                             <span className="min-w-0 truncate font-medium text-foreground">{l.name}</span>
-                            <span className="text-right font-mono tabular-nums text-muted-foreground">{uc}</span>
-                            <span className="text-right font-mono tabular-nums text-muted-foreground">{ac}</span>
                           </button>
                         </li>
                       )
@@ -945,9 +941,9 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   </header>
 
                   <div className="min-h-0 flex-1 overflow-y-auto">
-                    <div className="space-y-4 p-3">
+                    <div className="space-y-3 p-3">
                     {canAssignUsers ? (
-                      <div className="border-t border-border pt-6">
+                      <div className="border-t border-border pt-4">
                         <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                           Nutzer → Lager
                         </h3>
@@ -1012,7 +1008,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                       </div>
                     ) : null}
 
-                    <div className="border-t border-border pt-6">
+                    <div className="border-t border-border pt-4">
                       <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Unterlager
                       </h3>
@@ -1148,7 +1144,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
 
             {/* RECHTE SPALTE: Artikel */}
             <div className={cn(
-              'flex h-full min-h-0 flex-1 flex-col border-l border-border bg-background',
+              'flex h-full min-h-0 w-[340px] shrink-0 flex-col border-l border-border bg-background',
               'max-[1180px]:hidden'
             )}
               aria-label="Artikel"
@@ -1159,24 +1155,23 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 </div>
               ) : (
                 <>
-                  <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Artikel – {selectedLager.name}
+                  <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5">
+                    <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Artikel ({lagerArticles.length})
                     </p>
-                    <span className="text-[11px] text-muted-foreground">{lagerArticles.length} Artikel</span>
                   </header>
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     {lagerArticlesBusy ? (
-                      <p className="p-3 text-[12px] text-muted-foreground">Lädt…</p>
+                      <p className="p-2 text-[12px] text-muted-foreground">Lädt…</p>
                     ) : lagerArticles.length === 0 ? (
-                      <p className="p-3 text-[12px] text-muted-foreground">Keine Artikel in diesem Lager.</p>
+                      <p className="p-2 text-[12px] text-muted-foreground">Keine Artikel.</p>
                     ) : (
-                      <ul className="divide-y divide-border text-[12.5px]">
+                      <ul className="divide-y divide-border text-[12px]">
                         {lagerArticles.map((a) => (
-                          <li key={a.id} className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
-                            <span className="min-w-0 truncate font-medium">{a.name}</span>
-                            <span className="shrink-0 tabular-nums text-muted-foreground">
-                              {a.einheit} · {Number(a.preis).toFixed(2)} €
+                          <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-1">
+                            <span className="min-w-0 truncate font-medium text-[12px]">{a.name}</span>
+                            <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+                              {a.einheit} · {Number(a.preis).toFixed(2)}€
                             </span>
                           </li>
                         ))}
