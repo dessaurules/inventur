@@ -913,43 +913,32 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 </div>
               ) : (
                 <>
-                  <header className="flex shrink-0 items-start gap-2 border-b border-border px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Lager</p>
-                      <input
-                        className="w-full truncate rounded border border-transparent bg-transparent px-1 text-sm font-semibold text-foreground
-                          hover:border-input focus:border-input focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                        value={lagerNameDraft}
-                        onChange={(e) => setLagerNameDraft(e.target.value)}
-                        onBlur={() => void saveLager()}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-                        disabled={readOnly || busy}
-                        aria-label="Lagername"
-                      />
-                      <p className="mt-0.5 text-[12px] text-muted-foreground">
-                        {unterCount(selectedLager.id)} Unterlager · {lagerArticles.length} Artikel · — Inventuren
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label="Detail schließen"
-                      onClick={() => setSelectedLagerId(null)}
-                    >
-                      <X className="h-4 w-4" aria-hidden />
-                    </button>
+                  <header className="flex shrink-0 flex-col gap-1 border-b border-border px-3 py-1.5">
+                    <input
+                      className="w-full truncate rounded border border-transparent bg-transparent px-1 text-sm font-semibold text-foreground
+                        hover:border-input focus:border-input focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                      value={lagerNameDraft}
+                      onChange={(e) => setLagerNameDraft(e.target.value)}
+                      onBlur={() => void saveLager()}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+                      disabled={readOnly || busy}
+                      aria-label="Lagername"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      {unterCount(selectedLager.id)} U-Lager · {lagerArticles.length} Artikel
+                    </p>
                   </header>
 
                   <div className="min-h-0 flex-1 overflow-y-auto">
                     <div className="space-y-3 p-3">
                     {canAssignUsers ? (
-                      <div className="border-t border-border pt-4">
-                        <div className="flex gap-2">
+                      <div className="space-y-2">
+                        <div className="flex gap-1.5">
                           <select
                             value={assignUserId}
                             onChange={(e) => setAssignUserId(e.target.value)}
                             disabled={busy}
-                            className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-[12px]"
+                            className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]"
                             aria-label="Nutzer"
                           >
                             <option value="">Nutzer hinzufügen …</option>
@@ -963,102 +952,101 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             type="button"
                             onClick={() => void addAssignment()}
                             disabled={busy}
-                            className="h-8 shrink-0 rounded-md bg-primary px-2.5 text-[12px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                            className="h-7 shrink-0 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                           >
                             Hinzufügen
                           </button>
                         </div>
-                        {assignments.filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId).length === 0 ? (
-                          <p className="mt-1.5 text-[12px] text-muted-foreground">—</p>
-                        ) : (
-                          <ul className="mt-1.5 space-y-0.5">
-                            {assignments
-                              .filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId)
-                              .map((row) => {
-                              const em = row.expand?.nutzer ? displayUserName(row.expand.nutzer) : row.nutzer
-                              return (
-                                <li
-                                  key={row.id}
-                                  className="text-[12px] text-foreground"
-                                >
-                                  {em}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        )}
+                        {assignments.filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId).length > 0 ? (
+                          <div className="overflow-hidden rounded-md border border-border">
+                            <ul className="divide-y divide-border">
+                              {assignments
+                                .filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId)
+                                .map((row) => {
+                                const em = row.expand?.nutzer ? displayUserName(row.expand.nutzer) : row.nutzer
+                                return (
+                                  <li
+                                    key={row.id}
+                                    className="px-2.5 py-1.5 text-[12px] text-foreground"
+                                  >
+                                    {em}
+                                  </li>
+                                )
+                              })}
+                            </ul>
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
 
-                    <div className="border-t border-border pt-4">
+                    <div className="space-y-2">
                       <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                         Unterlager
                       </h3>
-                      <div className="mt-2 overflow-hidden rounded-md border border-border">
-                        <ul>
-                          {(unterByLager[selectedLager.id] || []).map((u, idx, arr) => (
-                            <li
-                              key={u.id}
-                              className={cn(
-                                'flex items-center justify-between gap-2 px-2.5 py-1.5',
-                                idx < arr.length - 1 && 'border-b border-border'
-                              )}
-                            >
-                              <span className="min-w-0 flex-1 text-[12px] font-medium text-foreground">{u.name}</span>
-                              <div className="flex shrink-0 items-center gap-0.5">
-                                <button
-                                  type="button"
-                                  disabled
-                                  title="Bearbeitung folgt"
-                                  className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-40"
-                                >
-                                  <Pencil className="h-3 w-3" aria-hidden />
-                                </button>
-                                {readOnly ? null : (
+                      {(unterByLager[selectedLager.id] || []).length > 0 ? (
+                        <div className="overflow-hidden rounded-md border border-border">
+                          <ul className="divide-y divide-border">
+                            {(unterByLager[selectedLager.id] || []).map((u) => (
+                              <li
+                                key={u.id}
+                                className="flex items-center justify-between gap-2 px-2.5 py-1.5"
+                              >
+                                <span className="min-w-0 flex-1 text-[12px] font-medium text-foreground">{u.name}</span>
+                                <div className="flex shrink-0 items-center gap-0.5">
                                   <button
                                     type="button"
-                                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
-                                    onClick={() => void removeUnterlager(u.id)}
-                                    disabled={busy}
-                                    aria-label="Unterlager entfernen"
+                                    disabled
+                                    title="Bearbeitung folgt"
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-40"
                                   >
-                                    <X className="h-3 w-3" aria-hidden />
+                                    <Pencil className="h-2.5 w-2.5" aria-hidden />
                                   </button>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                        {readOnly ? null : (
-                          <div className="flex gap-1.5 border-t border-border bg-muted/40 px-2.5 py-1.5">
-                            <input
-                              type="text"
-                              value={newUnter[selectedLager.id] ?? ''}
-                              onChange={(e) =>
-                                setNewUnter((prev) => ({ ...prev, [selectedLager.id]: e.target.value }))
-                              }
-                              placeholder="Neues Unterlager …"
-                              disabled={busy}
-                              className={cn(
-                                'h-7 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]',
-                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                              )}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => void addUnterlager(selectedLager.id)}
-                              disabled={busy}
-                              className={cn(
-                                'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground',
-                                'hover:opacity-90 disabled:opacity-50'
-                              )}
-                            >
-                              <Plus className="h-3 w-3" aria-hidden />
-                              Hinzufügen
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                                  {readOnly ? null : (
+                                    <button
+                                      type="button"
+                                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
+                                      onClick={() => void removeUnterlager(u.id)}
+                                      disabled={busy}
+                                      aria-label="Unterlager entfernen"
+                                    >
+                                      <X className="h-2.5 w-2.5" aria-hidden />
+                                    </button>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {readOnly ? null : (
+                        <div className="flex gap-1.5">
+                          <input
+                            type="text"
+                            value={newUnter[selectedLager.id] ?? ''}
+                            onChange={(e) =>
+                              setNewUnter((prev) => ({ ...prev, [selectedLager.id]: e.target.value }))
+                            }
+                            placeholder="Neues Unterlager …"
+                            disabled={busy}
+                            className={cn(
+                              'h-7 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                            )}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void addUnterlager(selectedLager.id)}
+                            disabled={busy}
+                            className={cn(
+                              'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground',
+                              'hover:opacity-90 disabled:opacity-50'
+                            )}
+                          >
+                            <Plus className="h-3 w-3" aria-hidden />
+                            Hinzufügen
+                          </button>
+                        </div>
+                      )}
                     </div>
                     </div>
                   </div>
@@ -1070,43 +1058,31 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                           type="button"
                           onClick={() => void deleteLagerHard(selectedLager.id)}
                           disabled={busy}
-                          className="inline-flex h-7 items-center gap-0.5 rounded px-2 text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                          className="h-7 flex-1 rounded px-2 text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
                         >
-                          <Trash2 className="h-3 w-3" aria-hidden />
                           Löschen
                         </button>
                         <button
                           type="button"
                           onClick={() => void archiveLager()}
                           disabled={busy}
-                          className="inline-flex h-7 items-center gap-0.5 rounded border border-border bg-background px-2 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
+                          className="h-7 flex-1 rounded border border-border bg-background px-2 text-[11px] font-medium hover:bg-muted disabled:opacity-50"
                         >
-                          <Archive className="h-3 w-3" aria-hidden />
                           Archivieren
                         </button>
                       </div>
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={discardLager}
-                          disabled={busy || !lagerDirty}
-                          className="h-7 flex-1 rounded border border-border bg-background text-[11px] hover:bg-muted disabled:opacity-50"
-                        >
-                          Verwerfen
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void saveLager()}
-                          disabled={busy || !lagerDirty}
-                          className={cn(
-                            'inline-flex h-7 items-center gap-0.5 rounded bg-primary px-2.5 text-[11px] font-medium text-primary-foreground',
-                            'hover:opacity-90 disabled:opacity-50'
-                          )}
-                        >
-                          <Check className="h-3 w-3" aria-hidden />
-                          Speichern
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void saveLager()}
+                        disabled={busy || !lagerDirty}
+                        className={cn(
+                          'inline-flex h-7 w-full items-center justify-center gap-0.5 rounded bg-primary text-[11px] font-medium text-primary-foreground',
+                          'hover:opacity-90 disabled:opacity-50'
+                        )}
+                      >
+                        <Check className="h-3 w-3" aria-hidden />
+                        Speichern
+                      </button>
                     </footer>
                   )}
                 </>
