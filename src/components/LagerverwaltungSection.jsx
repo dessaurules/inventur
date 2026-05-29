@@ -50,8 +50,9 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   const [users, setUsers] = useState([])
   const [allUnterlager, setAllUnterlager] = useState([])
   const [assignUserId, setAssignUserId] = useState('')
-  const [assignLagerId, setAssignLagerId] = useState('')
   const [assignments, setAssignments] = useState([])
+  const [lagerArticles, setLagerArticles] = useState([])
+  const [lagerArticlesBusy, setLagerArticlesBusy] = useState(false)
 
   const [activeTab, setActiveTab] = useState(/** @type {'lager' | 'firma' | 'archiv'} */ ('lager'))
   const [sidebarQuery, setSidebarQuery] = useState('')
@@ -125,7 +126,8 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         requestKey: null,
       })
       setUsers(list)
-    } catch {
+    } catch (err) {
+      console.error('[LagerverwaltungSection] loadUsers fehlgeschlagen:', err)
       setUsers([])
     }
   }, [canAssignUsers, standortId])
@@ -233,6 +235,25 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
       cancelled = true
     }
   }, [standortId, lagers.length])
+
+  useEffect(() => {
+    if (!selectedLagerId) { setLagerArticles([]); return }
+    let cancelled = false
+    setLagerArticlesBusy(true)
+    pb.collection(PB_COLLECTIONS.artikel).getFullList({
+      filter: `lager = "${selectedLagerId}"`,
+      sort: 'category,name',
+      fields: 'id,name,preis,einheit,category',
+      requestKey: null,
+    }).then((list) => {
+      if (!cancelled) setLagerArticles(list)
+    }).catch(() => {
+      if (!cancelled) setLagerArticles([])
+    }).finally(() => {
+      if (!cancelled) setLagerArticlesBusy(false)
+    })
+    return () => { cancelled = true }
+  }, [selectedLagerId])
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -508,14 +529,14 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   }
 
   const addAssignment = async () => {
-    if (!assignUserId || !assignLagerId) return
+    if (!assignUserId || !selectedLagerId) return
     setBusy(true)
     try {
       await pb.collection(PB_COLLECTIONS.userLager).create({
         nutzer: assignUserId,
-        lager: assignLagerId,
+        lager: selectedLagerId,
       })
-      setAssignLagerId('')
+      setAssignUserId('')
       await loadAssignments()
       showFeedback('ok', 'Zuweisung gespeichert.')
     } catch (err) {
@@ -1043,20 +1064,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                               </option>
                             ))}
                           </select>
-                          <select
-                            value={assignLagerId}
-                            onChange={(e) => setAssignLagerId(e.target.value)}
-                            disabled={busy}
-                            className="h-9 min-w-[10rem] rounded-md border border-input bg-background px-2 text-[12.5px]"
-                            aria-label="Lager"
-                          >
-                            <option value="">Lager wählen…</option>
-                            {lagers.map((l) => (
-                              <option key={l.id} value={l.id}>
-                                {l.name}
-                              </option>
-                            ))}
-                          </select>
                           <button
                             type="button"
                             onClick={() => void addAssignment()}
@@ -1066,11 +1073,13 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             Zuweisen
                           </button>
                         </div>
-                        {assignments.length === 0 ? (
+                        {assignments.filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId).length === 0 ? (
                           <p className="mt-2 text-[12px] text-muted-foreground">Keine Zuweisungen.</p>
                         ) : (
                           <ul className="mt-2 space-y-1">
-                            {assignments.map((row) => {
+                            {assignments
+                              .filter((r) => r.lager === selectedLagerId || r.expand?.lager?.id === selectedLagerId)
+                              .map((row) => {
                               const em = row.expand?.nutzer?.email ?? row.nutzer
                               const l = row.expand?.lager
                               const lab = l?.name ?? row.lager
@@ -1093,6 +1102,30 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                                 </li>
                               )
                             })}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {selectedLagerId ? (
+                      <div className="border-t border-border pt-6">
+                        <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Artikel ({lagerArticles.length})
+                        </h3>
+                        {lagerArticlesBusy ? (
+                          <p className="mt-2 text-[12px] text-muted-foreground">Lädt…</p>
+                        ) : lagerArticles.length === 0 ? (
+                          <p className="mt-2 text-[12px] text-muted-foreground">Keine Artikel in diesem Lager.</p>
+                        ) : (
+                          <ul className="mt-2 divide-y divide-border rounded-md border border-border text-[12.5px]">
+                            {lagerArticles.map((a) => (
+                              <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
+                                <span className="min-w-0 truncate font-medium">{a.name}</span>
+                                <span className="shrink-0 tabular-nums text-muted-foreground">
+                                  {a.einheit} · {Number(a.preis).toFixed(2)} €
+                                </span>
+                              </li>
+                            ))}
                           </ul>
                         )}
                       </div>
