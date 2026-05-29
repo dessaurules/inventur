@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lagerverwaltung – Redesign v3 (3-Spalten)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #f0f2f5; font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; }
+    :root {
+      --border: #e5e7eb;
+      --muted: #f9fafb;
+      --muted-fg: #6b7280;
+      --primary: #2563eb;
+      --primary-fg: #fff;
+      --fg: #111827;
+      --bg: #fff;
+      --ring: #93c5fd;
+    }
+    /* Simulated app shell */
+    .app-shell { display: flex; height: 100vh; background: var(--bg); }
+    .nav-sidebar { width: 56px; background: #1e293b; display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 8px; flex-shrink: 0; }
+    .nav-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 18px; cursor: pointer; }
+    .nav-icon.active { background: #2563eb; color: white; }
+    .main-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .top-bar { height: 48px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 12px; font-size: 13px; font-weight: 600; color: var(--fg); flex-shrink: 0; }
+    .content-area { flex: 1; display: flex; min-height: 0; }
+
+    /* 3-column layout */
+    .col-lager-list  { width: 240px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+    .col-management  { width: 320px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; background: #fafafa; }
+    .col-articles    { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    /* Column headers */
+    .col-header { height: 40px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; gap-8px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--muted-fg); text-transform: uppercase; flex-shrink: 0; background: var(--bg); }
+
+    /* Lager list */
+    .lager-list { flex: 1; overflow-y: auto; }
+    .lager-item { display: grid; grid-template-columns: 1fr 40px 48px; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--border); border-left: 2px solid transparent; cursor: pointer; font-size: 12.5px; transition: background 0.1s; }
+    .lager-item:hover { background: #f3f4f6; }
+    .lager-item.active { background: #eff6ff; border-left-color: #2563eb; }
+    .lager-item .name { font-weight: 500; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lager-item .count { text-align: right; color: var(--muted-fg); font-variant-numeric: tabular-nums; font-size: 12px; }
+    .lager-list-header { display: grid; grid-template-columns: 1fr 40px 48px; gap: 4px; padding: 6px 12px 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.4px; color: var(--muted-fg); text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; z-index: 1; }
+    .add-lager-row { padding: 8px 12px; border-top: 1px solid var(--border); margin-top: auto; }
+    .add-lager-btn { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--primary); cursor: pointer; padding: 6px 4px; border-radius: 6px; }
+    .add-lager-btn:hover { background: #eff6ff; }
+
+    /* Management column */
+    .mgmt-lager-title { padding: 12px 16px 8px; border-bottom: 1px solid var(--border); }
+    .mgmt-lager-name-input { font-size: 14px; font-weight: 600; color: var(--fg); border: 2px solid transparent; padding: 3px 6px; border-radius: 6px; width: 100%; background: transparent; transition: border-color 0.15s; }
+    .mgmt-lager-name-input:hover { border-color: #d1d5db; }
+    .mgmt-lager-name-input:focus { outline: none; border-color: var(--primary); background: white; }
+    .mgmt-lager-subtitle { font-size: 11.5px; color: var(--muted-fg); padding: 2px 6px; margin-top: 2px; }
+    .mgmt-scroll { flex: 1; overflow-y: auto; padding: 12px 16px; display: flex; flex-direction: column; gap: 16px; }
+    .mgmt-section-title { font-size: 11px; font-weight: 600; letter-spacing: 0.5px; color: var(--muted-fg); text-transform: uppercase; margin-bottom: 8px; }
+    .mgmt-empty { color: var(--muted-fg); font-size: 12px; font-style: italic; padding: 4px 0; }
+    .add-row { display: flex; gap: 6px; margin-top: 6px; }
+    .input-sm { height: 34px; flex: 1; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12.5px; min-width: 0; }
+    .input-sm:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring); }
+    .btn-primary-sm { height: 34px; padding: 0 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; white-space: nowrap; flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+    .btn-primary-sm:hover { opacity: 0.9; }
+    .assignment-list { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .assignment-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+    .assignment-item:last-child { border-bottom: none; }
+    .assignment-name { color: var(--fg); }
+    .btn-remove { font-size: 12px; color: #9ca3af; cursor: pointer; padding: 2px 4px; border-radius: 4px; border: none; background: none; }
+    .btn-remove:hover { color: #dc2626; background: #fee2e2; }
+    .unterlager-list { border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+    .unterlager-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 10px; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+    .unterlager-item:last-child { border-bottom: none; }
+    .select-sm { height: 34px; flex: 1; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12.5px; background: white; min-width: 0; }
+    .select-sm:focus { outline: none; border-color: var(--primary); }
+
+    /* Articles column */
+    .art-toolbar { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-shrink: 0; background: var(--bg); }
+    .art-search { height: 30px; flex: 1; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 10px; font-size: 12px; }
+    .art-search:focus { outline: none; border-color: var(--primary); }
+    .art-count { font-size: 11.5px; color: var(--muted-fg); white-space: nowrap; }
+    .art-list { flex: 1; overflow-y: auto; }
+    .art-item { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+    .art-item:hover { background: #fafafa; }
+    .art-name { font-weight: 500; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .art-meta { color: var(--muted-fg); font-size: 11.5px; white-space: nowrap; }
+    .art-num { font-size: 10px; color: #9ca3af; font-variant-numeric: tabular-nums; }
+
+    /* Placeholder for empty right col */
+    .empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted-fg); gap: 8px; }
+    .empty-icon { font-size: 32px; opacity: 0.3; }
+
+    /* Tag badge */
+    .badge { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 9999px; font-size: 10.5px; font-weight: 500; }
+    .badge-blue { background: #dbeafe; color: #1d4ed8; }
+    .badge-gray { background: #f3f4f6; color: var(--muted-fg); }
+
+    /* Section divider */
+    .section-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- Nav Sidebar -->
+  <nav class="nav-sidebar">
+    <div class="nav-icon active" title="Lagerverwaltung">☰</div>
+    <div class="nav-icon" title="Magazin">🏪</div>
+    <div class="nav-icon" title="Inventur">📋</div>
+    <div class="nav-icon" title="Mitarbeiter">👥</div>
+  </nav>
+
+  <div class="main-area">
+
+    <!-- Top bar -->
+    <div class="top-bar">
+      <span>Lagerverwaltung</span>
+      <span style="font-weight:400; color:#6b7280; font-size:12px;">Muster-Gaststätte GmbH</span>
+    </div>
+
+    <!-- 3-column content -->
+    <div class="content-area">
+
+      <!-- ① LINKE SPALTE: Lager-Liste -->
+      <div class="col-lager-list">
+        <div class="col-header" style="justify-content: space-between;">
+          <span>Lager</span>
+        </div>
+
+        <div style="padding: 8px 12px; border-bottom: 1px solid var(--border);">
+          <input type="text" placeholder="Suchen …" class="art-search" style="width:100%; height:28px; font-size:12px;" />
+        </div>
+
+        <div class="lager-list">
+          <div class="lager-list-header">
+            <span>Name</span>
+            <span style="text-align:right">U</span>
+            <span style="text-align:right">Art.</span>
+          </div>
+          <ul style="margin:0; padding:0; list-style:none;">
+            <li class="lager-item active">
+              <span class="name">Restaurant</span>
+              <span class="count">2</span>
+              <span class="count">132</span>
+            </li>
+            <li class="lager-item">
+              <span class="name">Küche</span>
+              <span class="count">3</span>
+              <span class="count">48</span>
+            </li>
+            <li class="lager-item">
+              <span class="name">Bar</span>
+              <span class="count">1</span>
+              <span class="count">31</span>
+            </li>
+            <li class="lager-item">
+              <span class="name">Lager EG</span>
+              <span class="count">0</span>
+              <span class="count">89</span>
+            </li>
+          </ul>
+        </div>
+
+        <div class="add-lager-row">
+          <div class="add-lager-btn">
+            <span style="font-size:16px; font-weight:300;">+</span> Neues Lager
+          </div>
+        </div>
+      </div>
+
+      <!-- ② MITTLERE SPALTE: Mitarbeiter + Unterlager für ausgewähltes Lager -->
+      <div class="col-management">
+        <div class="col-header">
+          <span>Verwaltung</span>
+        </div>
+
+        <!-- Lagername Inline-Edit -->
+        <div class="mgmt-lager-title">
+          <input type="text" class="mgmt-lager-name-input" value="Restaurant" />
+          <div class="mgmt-lager-subtitle">2 Unterlager · 132 Artikel</div>
+        </div>
+
+        <div class="mgmt-scroll">
+
+          <!-- Mitarbeiter Sektion -->
+          <div>
+            <div class="mgmt-section-title">Mitarbeiter</div>
+            <div class="add-row">
+              <select class="select-sm">
+                <option>Nutzer wählen …</option>
+                <option>Steffi Hofmann</option>
+                <option>Franzi Roth</option>
+                <option>Max Mustermann</option>
+              </select>
+              <button class="btn-primary-sm">+ Hinzufügen</button>
+            </div>
+            <div class="assignment-list" style="margin-top:8px;">
+              <div class="assignment-item">
+                <span class="assignment-name">Ronny Beckmann</span>
+                <button class="btn-remove" title="Entfernen">✕</button>
+              </div>
+              <div class="assignment-item">
+                <span class="assignment-name">Steffi Hofmann</span>
+                <button class="btn-remove" title="Entfernen">✕</button>
+              </div>
+            </div>
+          </div>
+
+          <hr class="section-divider" />
+
+          <!-- Unterlager Sektion -->
+          <div>
+            <div class="mgmt-section-title">Unterlager</div>
+            <div class="unterlager-list">
+              <div class="unterlager-item">
+                <span style="font-weight:500; color:var(--fg);">Kühlbereich</span>
+                <div style="display:flex; gap:2px;">
+                  <button class="btn-remove" title="Bearbeiten" style="color:#9ca3af;">✎</button>
+                  <button class="btn-remove" title="Entfernen">✕</button>
+                </div>
+              </div>
+              <div class="unterlager-item">
+                <span style="font-weight:500; color:var(--fg);">Lager EG</span>
+                <div style="display:flex; gap:2px;">
+                  <button class="btn-remove" title="Bearbeiten" style="color:#9ca3af;">✎</button>
+                  <button class="btn-remove" title="Entfernen">✕</button>
+                </div>
+              </div>
+              <div style="display:flex; gap:6px; padding:7px 10px; border-top:1px solid var(--border); background:#f9fafb;">
+                <input type="text" class="input-sm" placeholder="Neues Unterlager …" style="height:30px; font-size:12px;" />
+                <button class="btn-primary-sm" style="height:30px; font-size:11.5px;">+ Hinzufügen</button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ③ RECHTE SPALTE: Nur Artikel -->
+      <div class="col-articles">
+        <div class="col-header" style="justify-content: space-between;">
+          <span>Artikel – Restaurant</span>
+          <span class="art-count">132 Artikel</span>
+        </div>
+        <div class="art-toolbar">
+          <input type="text" class="art-search" placeholder="Artikel suchen …" />
+        </div>
+        <div class="art-list">
+          <div class="art-item">
+            <div>
+              <div class="art-name">Heineken 0,5l</div>
+              <div class="art-num">Art.-Nr. 10042</div>
+            </div>
+            <div class="art-meta">Stk · 2,50 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Corona Extra 0,33l</div>
+              <div class="art-num">Art.-Nr. 10043</div>
+            </div>
+            <div class="art-meta">Stk · 3,20 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Pils vom Fass 0,5l</div>
+              <div class="art-num">Art.-Nr. 10010</div>
+            </div>
+            <div class="art-meta">Stk · 2,80 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Cola 0,5l</div>
+              <div class="art-num">Art.-Nr. 10051</div>
+            </div>
+            <div class="art-meta">Stk · 2,20 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Sprite 0,5l</div>
+              <div class="art-num">Art.-Nr. 10052</div>
+            </div>
+            <div class="art-meta">Stk · 2,20 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Fanta Orange 0,5l</div>
+              <div class="art-num">Art.-Nr. 10053</div>
+            </div>
+            <div class="art-meta">Stk · 2,00 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Wasser still 0,75l</div>
+              <div class="art-num">Art.-Nr. 10060</div>
+            </div>
+            <div class="art-meta">Fla · 1,50 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Wasser sprudel 0,75l</div>
+              <div class="art-num">Art.-Nr. 10061</div>
+            </div>
+            <div class="art-meta">Fla · 1,50 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Becks 0,5l</div>
+              <div class="art-num">Art.-Nr. 10044</div>
+            </div>
+            <div class="art-meta">Stk · 2,40 €</div>
+          </div>
+          <div class="art-item">
+            <div>
+              <div class="art-name">Guinness 0,44l</div>
+              <div class="art-num">Art.-Nr. 10045</div>
+            </div>
+            <div class="art-meta">Stk · 4,10 €</div>
+          </div>
+          <div class="art-item" style="background:#f9fafb; color:var(--muted-fg); font-style:italic; justify-content:center;">
+            <span style="font-size:12px;">… und 122 weitere Artikel</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content-area -->
+  </div><!-- end main-area -->
+</div><!-- end app-shell -->
+
+<!-- Legend -->
+<div style="position:fixed; bottom:12px; right:12px; background:white; border:1px solid var(--border); border-radius:10px; padding:14px 18px; max-width:300px; box-shadow:0 4px 12px rgba(0,0,0,.08); font-size:12px; z-index:999;">
+  <div style="font-weight:700; margin-bottom:8px; color:#1e293b;">✦ Redesign v3 — 3-Spalten</div>
+  <div style="display:flex; flex-direction:column; gap:5px; color:#374151;">
+    <div>① <strong>Links:</strong> Lager-Liste (Name / U / Art.)</div>
+    <div>② <strong>Mitte:</strong> Lagername + Mitarbeiter + Unterlager</div>
+    <div>③ <strong>Rechts:</strong> Nur Artikel des gewählten Lagers</div>
+  </div>
+</div>
+
+</body>
+</html>

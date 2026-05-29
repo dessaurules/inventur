@@ -901,13 +901,14 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
               </div>
             </div>
 
-            <aside
+            {/* MITTLERE SPALTE: Verwaltung */}
+            <div
               className={cn(
-                'flex h-full min-h-0 w-[380px] shrink-0 flex-col border-l border-border bg-background',
+                'flex h-full min-h-0 w-[320px] shrink-0 flex-col border-l border-border bg-background',
                 'max-[1180px]:fixed max-[1180px]:inset-y-0 max-[1180px]:right-0 max-[1180px]:z-40 max-[1180px]:shadow-xl',
                 !lagerDrawerOpen && 'max-[1180px]:hidden'
               )}
-              aria-label="Lager-Details"
+              aria-label="Lager-Verwaltung"
               aria-hidden={!lagerDrawerOpen}
             >
               {!selectedLager ? (
@@ -1006,30 +1007,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                                 </li>
                               )
                             })}
-                          </ul>
-                        )}
-                      </div>
-                    ) : null}
-
-                    {selectedLagerId ? (
-                      <div className="border-t border-border pt-6">
-                        <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Artikel ({lagerArticles.length})
-                        </h3>
-                        {lagerArticlesBusy ? (
-                          <p className="mt-2 text-[12px] text-muted-foreground">Lädt…</p>
-                        ) : lagerArticles.length === 0 ? (
-                          <p className="mt-2 text-[12px] text-muted-foreground">Keine Artikel in diesem Lager.</p>
-                        ) : (
-                          <ul className="mt-2 divide-y divide-border rounded-md border border-border text-[12.5px]">
-                            {lagerArticles.map((a) => (
-                              <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-1.5">
-                                <span className="min-w-0 truncate font-medium">{a.name}</span>
-                                <span className="shrink-0 tabular-nums text-muted-foreground">
-                                  {a.einheit} · {Number(a.preis).toFixed(2)} €
-                                </span>
-                              </li>
-                            ))}
                           </ul>
                         )}
                       </div>
@@ -1167,7 +1144,48 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   )}
                 </>
               )}
-            </aside>
+            </div>
+
+            {/* RECHTE SPALTE: Artikel */}
+            <div className={cn(
+              'flex h-full min-h-0 flex-1 flex-col border-l border-border bg-background',
+              'max-[1180px]:hidden'
+            )}
+              aria-label="Artikel"
+            >
+              {!selectedLager ? (
+                <div className="flex flex-1 items-center justify-center p-6 text-center text-[12.5px] text-muted-foreground">
+                  Wähle ein Lager aus der Liste.
+                </div>
+              ) : (
+                <>
+                  <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Artikel – {selectedLager.name}
+                    </p>
+                    <span className="text-[11px] text-muted-foreground">{lagerArticles.length} Artikel</span>
+                  </header>
+                  <div className="min-h-0 flex-1 overflow-y-auto">
+                    {lagerArticlesBusy ? (
+                      <p className="p-3 text-[12px] text-muted-foreground">Lädt…</p>
+                    ) : lagerArticles.length === 0 ? (
+                      <p className="p-3 text-[12px] text-muted-foreground">Keine Artikel in diesem Lager.</p>
+                    ) : (
+                      <ul className="divide-y divide-border text-[12.5px]">
+                        {lagerArticles.map((a) => (
+                          <li key={a.id} className="flex items-center justify-between gap-2 border-b border-border px-3 py-1.5">
+                            <span className="min-w-0 truncate font-medium">{a.name}</span>
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {a.einheit} · {Number(a.preis).toFixed(2)} €
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         ) : null}
 
