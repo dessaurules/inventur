@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import * as ScrollArea from '@radix-ui/react-scroll-area'
 import { Archive, ChevronDown, Download, History, MoreHorizontal, Plus, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -14,8 +15,21 @@ import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
 import { formatUnterlagerLabel } from '../lib/lagerAccess'
 import { userCanEndZaehlSession } from '../lib/zaehlSessionAccess'
 import { normalizeSessionPositionen } from '../lib/sessionSnapshot'
+import { deleteZaehlungPositionsForSession } from '../lib/zaehlungPosition.js'
 import { avatarInitials } from '../lib/avatarInitials'
 import { cn } from '../lib/cn.js'
+import { InventurDeleteConfirmDialog } from './InventurDeleteConfirmDialog.jsx'
+
+/** Kontextmenü innerhalb des Viewports halten. */
+function clampMenuPosition(x, y) {
+  const menuW = 168
+  const menuH = 220
+  const pad = 8
+  return {
+    x: Math.min(Math.max(pad, x), window.innerWidth - menuW - pad),
+    y: Math.min(Math.max(pad, y), window.innerHeight - menuH - pad),
+  }
+}
 
 function formatDeDateShort(iso) {
   if (!iso) return ''
@@ -352,7 +366,23 @@ export function LastInventurView({
   const [selectedRowId, setSelectedRowId] = useState(/** @type {string | null} */ (null))
   const [inventurMutateBusy, setInventurMutateBusy] = useState(false)
   const [menuRowId, setMenuRowId] = useState(/** @type {string | null} */ (null))
+  const [menuPos, setMenuPos] = useState(/** @type {{ x: number, y: number } | null} */ (null))
+  const [deleteConfirmRow, setDeleteConfirmRow] = useState(
+    /** @type {null | { kind: 'open' | 'closed', id: string }} */ (null)
+  )
   const menuRef = useRef(/** @type {HTMLDivElement | null} */ (null))
+
+  const closeRowMenu = useCallback(() => {
+    setMenuRowId(null)
+    setMenuPos(null)
+  }, [])
+
+  const openRowMenu = useCallback((rowId, clientX, clientY, alignEnd = false) => {
+    setSelectedRowId(rowId)
+    setMenuRowId(rowId)
+    const x = alignEnd ? clientX - 168 : clientX
+    setMenuPos(clampMenuPosition(x, clientY))
+  }, [])
 
   const [panelProUnterlager, setPanelProUnterlager] = useState(false)
   const [panelShowAllPositions, setPanelShowAllPositions] = useState(false)
@@ -475,11 +505,11 @@ export function LastInventurView({
     const onDoc = (e) => {
       if (!menuRowId) return
       const el = menuRef.current
-      if (el && !el.contains(e.target)) setMenuRowId(null)
+      if (el && !el.contains(e.target)) closeRowMenu()
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
-  }, [menuRowId])
+  }, [menuRowId, closeRowMenu])
 
   useEffect(() => {
     const onDoc = (e) => {
@@ -727,41 +757,227 @@ export function LastInventurView({
     }
   }
 
+  const executeDeleteInventurRow = useCallback(
+    async (row) => {
+      if (!row || (row.kind !== 'closed' && row.kind !== 'open')) return
+      setInventurMutateBusy(true)
+      try {
+        await deleteArchivEntries(row.id)
+        await deleteZaehlungPositionsForSession(pb, row.id)
+        await pb.collection(PB_COLLECTIONS.zaehlSessions).delete(row.id, { requestKey: null })
+        toast.success(row.kind === 'open' ? 'Session gelöscht.' : 'Inventur gelöscht.')
+        if (selectedRowId === row.id) setSelectedRowId(null)
+        setDeleteConfirmRow(null)
+        await reloadInventurListenLive()
+      } catch (e) {
+        toast.error(pocketBaseFullErrorMessage(e) || 'Löschen fehlgeschlagen.')
+      } finally {
+        setInventurMutateBusy(false)
+      }
+    },
+    [reloadInventurListenLive, selectedRowId]
+  )
+
+  const requestDeleteInventurRow = useCallback(
+    (row) => {
+      if (!row || (row.kind !== 'closed' && row.kind !== 'open')) return
+      closeRowMenu()
+      setDeleteConfirmRow({ kind: row.kind, id: row.id })
+    },
+    [closeRowMenu]
+  )
+
+  const endOpenSessionRow = useCallback(
+    async (row) => {
+      if (!row || row.kind !== 'open' || !row.session) return
+      if (!currentUser || !userCanEndZaehlSession(currentUser, row.session)) {
+        toast.error('Keine Berechtigung, diese Session zu beenden.')
+        return
+      }
+      if (
+        !window.confirm(
+          'Diese Zählsession jetzt beenden? Erfasste Mengen werden wie bei „Fertig“ übernommen.'
+        )
+      ) {
+        return
+      }
+      closeRowMenu()
+      setEndingSessionId(row.id)
+      try {
+        const res = await onEndOpenSession?.(row.id)
+        if (res && res.ok === false && res.message) {
+          toast.error(res.message)
+        } else {
+          toast.success('Session beendet.')
+          await reloadInventurListenLive()
+        }
+      } catch (e) {
+        toast.error(pocketBaseFullErrorMessage(e) || 'Session konnte nicht beendet werden.')
+      } finally {
+        setEndingSessionId(null)
+      }
+    },
+    [closeRowMenu, currentUser, onEndOpenSession, reloadInventurListenLive]
+  )
+
+  const reopenInventurRow = useCallback(
+    async (row) => {
+      if (!row || row.kind !== 'closed') return
+      if (row.archiviert) {
+        if (!window.confirm('Inventur aus dem Archiv zurückholen?')) return
+      } else {
+        if (
+          !window.confirm(
+            'Zählsession wieder öffnen? Sie erscheint wieder unter laufenden Inventuren und kann weitergezählt werden.'
+          )
+        ) {
+          return
+        }
+      }
+      closeRowMenu()
+      setInventurMutateBusy(true)
+      try {
+        if (row.archiviert) {
+          await pb.collection(PB_COLLECTIONS.zaehlSessions).update(row.id, { archiviert: false })
+          toast.success('Inventur wieder geöffnet.')
+        } else {
+          await pb.collection(PB_COLLECTIONS.zaehlSessions).update(row.id, {
+            ended: '',
+            archiviert: false,
+          })
+          toast.success('Session wieder geöffnet.')
+        }
+        await reloadInventurListenLive()
+      } catch (e) {
+        toast.error(pocketBaseFullErrorMessage(e) || 'Wiedereröffnen fehlgeschlagen.')
+      } finally {
+        setInventurMutateBusy(false)
+      }
+    },
+    [closeRowMenu, reloadInventurListenLive]
+  )
+
   const handleRestoreInventur = async () => {
-    if (!selectedRow || selectedRow.kind !== 'closed' || !selectedRow.archiviert) return
-    setInventurMutateBusy(true)
-    try {
-      await pb.collection(PB_COLLECTIONS.zaehlSessions).update(selectedRow.id, { archiviert: false })
-      toast.success('Inventur wieder geöffnet (nicht mehr archiviert).')
-      await refreshInventuren()
-    } catch (e) {
-      toast.error(pocketBaseFullErrorMessage(e) || 'Wiederöffnen fehlgeschlagen.')
-    } finally {
-      setInventurMutateBusy(false)
-    }
+    if (!selectedRow) return
+    await reopenInventurRow(selectedRow)
   }
 
-  const handleDeleteInventur = async () => {
-    if (!selectedRow || selectedRow.kind !== 'closed') return
-    if (
-      !window.confirm(
-        'Diese Inventur unwiderruflich löschen? Session und zugehörige Archiv-Einträge werden entfernt.'
-      )
-    )
-      return
-    setInventurMutateBusy(true)
-    try {
-      await deleteArchivEntries(selectedRow.id)
-      await pb.collection(PB_COLLECTIONS.zaehlSessions).delete(selectedRow.id, { requestKey: null })
-      toast.success('Inventur gelöscht.')
-      setSelectedRowId(null)
-      await refreshInventuren()
-    } catch (e) {
-      toast.error(pocketBaseFullErrorMessage(e) || 'Löschen fehlgeschlagen.')
-    } finally {
-      setInventurMutateBusy(false)
-    }
+  const handleDeleteInventur = () => {
+    if (!selectedRow) return
+    requestDeleteInventurRow(selectedRow)
   }
+
+  const rowMenuItemCn =
+    'block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-muted disabled:pointer-events-none disabled:opacity-45'
+
+  const renderRowOptionsMenu = useCallback(
+    (row, nr) => {
+      const canEndOpen =
+        row.kind === 'open' &&
+        row.session &&
+        currentUser &&
+        userCanEndZaehlSession(currentUser, row.session)
+
+      return (
+        <>
+          {canEndOpen ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={rowMenuItemCn}
+              disabled={inventurMutateBusy || endingSessionId === row.id}
+              onClick={() => void endOpenSessionRow(row)}
+            >
+              {endingSessionId === row.id ? 'Beendet…' : 'Session beenden'}
+            </button>
+          ) : null}
+          {row.kind === 'closed' ? (
+            <button
+              type="button"
+              role="menuitem"
+              className={rowMenuItemCn}
+              disabled={inventurMutateBusy}
+              onClick={() => void reopenInventurRow(row)}
+            >
+              {row.archiviert ? 'Wieder eröffnen' : 'Session zurückholen'}
+            </button>
+          ) : null}
+        {row.kind === 'closed' && row.tableRows.length > 0 ? (
+          <>
+            <div className="my-1 border-t border-border" role="separator" />
+            <button
+              type="button"
+              role="menuitem"
+              className={rowMenuItemCn}
+              onClick={() => {
+                exportRow(row, nr, 'csv')
+                closeRowMenu()
+              }}
+            >
+              Als CSV exportieren
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              className={rowMenuItemCn}
+              onClick={() => {
+                exportRow(row, nr, 'pdf')
+                closeRowMenu()
+              }}
+            >
+              Als PDF exportieren
+            </button>
+          </>
+        ) : null}
+        {row.kind === 'open' || row.kind === 'closed' ? (
+          <>
+            {canEndOpen || row.kind === 'closed' ? (
+              <div className="my-1 border-t border-border" role="separator" />
+            ) : null}
+            <button
+              type="button"
+              role="menuitem"
+              className={cn(rowMenuItemCn, 'text-destructive hover:bg-destructive/10')}
+              disabled={inventurMutateBusy}
+              onClick={() => requestDeleteInventurRow(row)}
+            >
+              Löschen
+            </button>
+          </>
+        ) : null}
+        </>
+      )
+    },
+    [
+      closeRowMenu,
+      currentUser,
+      requestDeleteInventurRow,
+      endOpenSessionRow,
+      endingSessionId,
+      exportRow,
+      inventurMutateBusy,
+      reopenInventurRow,
+      rowMenuItemCn,
+    ]
+  )
+
+  const menuRow = menuRowId ? filteredRows.find((r) => r.id === menuRowId) : null
+  const menuRowNr = menuRow ? displayNrForRow(menuRow) : 0
+
+  const rowOptionsMenuPortal =
+    menuRow && menuPos
+      ? createPortal(
+          <div
+            ref={menuRef}
+            className="fixed z-[100] min-w-[11.5rem] rounded-md border border-border bg-background py-1 text-left shadow-md"
+            style={{ left: menuPos.x, top: menuPos.y }}
+            role="menu"
+          >
+            {renderRowOptionsMenu(menuRow, menuRowNr)}
+          </div>,
+          document.body
+        )
+      : null
 
   const renderBarSection = (label, rows) => {
     const groups = groupTableRowsByCategory(rows)
@@ -914,7 +1130,7 @@ export function LastInventurView({
           value={filterUnterlagerId}
           onChange={(e) => {
             setFilterUnterlagerId(e.target.value)
-            setMenuRowId(null)
+            closeRowMenu()
           }}
           className={cn(
             'h-8 min-w-[10rem] rounded-md border border-border bg-background px-2 text-[12.5px] text-foreground',
@@ -1296,6 +1512,10 @@ export function LastInventurView({
                       !active && 'hover:bg-muted/50'
                     )}
                     onClick={() => setSelectedRowId(row.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault()
+                      openRowMenu(row.id, e.clientX, e.clientY)
+                    }}
                   >
                     <td
                       className={cn(
@@ -1330,74 +1550,46 @@ export function LastInventurView({
                       <button
                         type="button"
                         className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-                        aria-label="Menü"
+                        aria-label="Optionen"
                         aria-expanded={menuRowId === row.id}
-                        onClick={() => setMenuRowId((id) => (id === row.id ? null : row.id))}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (menuRowId === row.id) {
+                            closeRowMenu()
+                            return
+                          }
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          openRowMenu(row.id, rect.right, rect.bottom + 4, true)
+                        }}
                       >
                         <MoreHorizontal className="h-4 w-4" />
                       </button>
-                      {menuRowId === row.id ? (
-                        <div
-                          ref={menuRef}
-                          className="absolute right-2 top-9 z-20 min-w-[10rem] rounded-md border border-border bg-background py-1 text-left shadow-md"
-                          role="menu"
-                        >
-                          <button
-                            type="button"
-                            role="menuitem"
-                            className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-muted"
-                            onClick={() => {
-                              setSelectedRowId(row.id)
-                              setMenuRowId(null)
-                            }}
-                          >
-                            Details
-                          </button>
-                          {row.kind === 'closed' && row.tableRows.length > 0 ? (
-                            <>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-muted"
-                                onClick={() => {
-                                  exportRow(row, nr, 'csv')
-                                  setMenuRowId(null)
-                                }}
-                              >
-                                Als CSV
-                              </button>
-                              <button
-                                type="button"
-                                role="menuitem"
-                                className="block w-full px-3 py-1.5 text-left text-[12.5px] hover:bg-muted"
-                                onClick={() => {
-                                  exportRow(row, nr, 'pdf')
-                                  setMenuRowId(null)
-                                }}
-                              >
-                                Als PDF
-                              </button>
-                            </>
-                          ) : null}
-                        </div>
-                      ) : null}
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
+          {rowOptionsMenuPortal}
         </div>
       )
     ) : null
 
+  const deleteConfirmKind = deleteConfirmRow?.kind
+  const deleteConfirmTarget = deleteConfirmRow
+    ? filteredRows.find((r) => r.id === deleteConfirmRow.id) ??
+      unifiedRows.find((r) => r.id === deleteConfirmRow.id) ??
+      null
+    : null
+
   return (
-    <div
-      className={cn(
-        'admin-view admin-page--inventuren inventuren-page--wide magazin-variant-c',
-        'flex h-[calc(100vh-3.5rem)] min-h-[480px] w-full min-w-0 flex-col bg-background text-foreground'
-      )}
-    >
+    <>
+      <div
+        className={cn(
+          'admin-view admin-page--inventuren inventuren-page--wide magazin-variant-c',
+          'flex h-[calc(100vh-3.5rem)] min-h-[480px] w-full min-w-0 flex-col bg-background text-foreground'
+        )}
+      >
       {loading ? (
         <>
           {feedbackBlock}
@@ -1447,6 +1639,18 @@ export function LastInventurView({
           </div>
         </>
       )}
-    </div>
+      </div>
+      <InventurDeleteConfirmDialog
+        open={Boolean(deleteConfirmRow && deleteConfirmTarget)}
+        onOpenChange={(open) => {
+          if (!open) setDeleteConfirmRow(null)
+        }}
+        kind={deleteConfirmKind}
+        busy={inventurMutateBusy}
+        onConfirm={() => {
+          if (deleteConfirmTarget) void executeDeleteInventurRow(deleteConfirmTarget)
+        }}
+      />
+    </>
   )
 }

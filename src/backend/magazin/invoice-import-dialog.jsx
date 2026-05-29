@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '../../lib/cn.js'
 import { formatPreisEUR } from './format.js'
 import { normalizeStueckProLiefergebinde } from './types.js'
@@ -32,9 +33,10 @@ import { normalizeStueckProLiefergebinde } from './types.js'
  * @param {object[]} props.rows
  * @param {string[]} props.parseWarnings
  * @param {import('./types.js').MagazinArtikel[]} props.articlesForLink
- * @param {(payloads: (InvoiceApplyUpdate | InvoiceApplyCreate)[]) => Promise<void>} props.onApply
+ * @param {(payloads: (InvoiceApplyUpdate | InvoiceApplyCreate)[]) => Promise<{ ok: number, fail: number }>} props.onApply
  */
 export function InvoiceImportDialog({ open, onOpenChange, rows, parseWarnings, articlesForLink, onApply }) {
+  const recognizedToastShownRef = useRef(false)
   /** @type {InvoiceTab} */
   const [tab, setTab] = useState(/** @type {InvoiceTab} */ ('all'))
   /** @type {Record<string, { preis: number, stueck: number }>} */
@@ -47,7 +49,14 @@ export function InvoiceImportDialog({ open, onOpenChange, rows, parseWarnings, a
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      recognizedToastShownRef.current = false
+      return
+    }
+    if (rows.length > 0 && !recognizedToastShownRef.current) {
+      recognizedToastShownRef.current = true
+      toast.success(`${rows.length} Positionen erkannt`)
+    }
     const drafts = {}
     const sel = {}
     const um = {}
@@ -215,7 +224,16 @@ export function InvoiceImportDialog({ open, onOpenChange, rows, parseWarnings, a
     if (payloads.length === 0) return
     setBusy(true)
     try {
-      await onApply(payloads)
+      const { ok, fail } = await onApply(payloads)
+      if (fail > 0) {
+        toast.error(
+          fail === 1
+            ? '1 Position konnte nicht gespeichert werden'
+            : `${fail} Positionen konnten nicht gespeichert werden`
+        )
+      } else if (ok > 0) {
+        toast.success('Preise erfolgreich übernommen')
+      }
       onOpenChange(false)
     } finally {
       setBusy(false)

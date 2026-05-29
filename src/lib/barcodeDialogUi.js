@@ -44,11 +44,14 @@ export const barcodeStatusText = 'text-xs text-muted-foreground'
 
 export const barcodeAlert = authAlertMuted
 
-export const barcodeFooter = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-2'
+/** Zwei gleich breite Buttons in einer Zeile (Touch). */
+export const barcodeDialogActions = 'grid w-full grid-cols-2 gap-2'
 
-export const barcodeButtonOutline = cn(authButtonOutline, 'w-full sm:w-auto min-h-10')
+export const barcodeBarcodeActions = 'grid shrink-0 grid-cols-2 gap-2'
 
-export const barcodeButtonPrimary = cn(authButtonPrimary, 'w-full sm:w-auto min-h-10')
+export const barcodeButtonOutline = cn(authButtonOutline, 'min-h-10 w-full')
+
+export const barcodeButtonPrimary = cn(authButtonPrimary, 'min-h-10 w-full')
 
 /** Tabs: Container wächst mit Touch-Höhe der Trigger (kein festes h-9). */
 export const barcodeTabsList =
@@ -66,7 +69,7 @@ export function barcodeTabsTriggerCn(selected) {
 
 export const barcodeFieldGroup = authFieldGroup
 export const barcodeLabel = authLabelClass
-export const barcodeInput = authInputClass
+export const barcodeInput = cn(authInputClass, 'barcode-dialog-input')
 export const barcodeInlineCode = authInlineCode
 
 export const barcodeCreateGrid = 'grid grid-cols-1 gap-3 sm:grid-cols-3'
@@ -91,4 +94,4 @@ export const barcodeLinkItemMeta = 'text-xs text-muted-foreground'
 
 export const barcodeLinkPreview = 'text-sm text-muted-foreground'
 
-export const barcodeSectionActions = 'flex flex-col-reverse gap-2 sm:flex-row sm:justify-end'
+export const barcodeSectionActions = barcodeDialogActions

@@ -16,8 +16,9 @@ import {
   barcodeDialogHeader,
   barcodeDialogOverlay,
   barcodeDialogTitle,
+  barcodeBarcodeActions,
+  barcodeDialogActions,
   barcodeFieldGroup,
-  barcodeFooter,
   barcodeInlineCode,
   barcodeInput,
   barcodeLabel,
@@ -486,7 +487,7 @@ export function BarcodeScanDialog({
 
               <div className={barcodeFieldGroup}>
                 <span className={barcodeLabel}>Barcode (optional)</span>
-                <div className="flex gap-2">
+                <div className="flex items-stretch gap-2">
                   <input
                     ref={barcodeInputRef}
                     id="add-article-barcode"
@@ -498,23 +499,25 @@ export function BarcodeScanDialog({
                     placeholder="Barcode"
                     autoComplete="off"
                   />
-                  <button
-                    type="button"
-                    className={`inventur-add-dialog-scan-toggle${scanExpanded ? ' inventur-add-dialog-scan-toggle--active' : ''}`}
-                    onClick={toggleScan}
-                    aria-label={scanExpanded ? 'Kamera schließen' : 'Barcode scannen'}
-                    aria-pressed={scanExpanded}
-                  >
-                    <BarcodeScanIcon className="inventur-add-dialog-scan-icon" />
-                  </button>
-                  <button
-                    type="button"
-                    className={barcodeButtonOutline}
-                    disabled={barcodeLookupBusy || !codeTrimmed}
-                    onClick={() => resolveScannedBarcode(barcodeInput)}
-                  >
-                    {barcodeLookupBusy ? '…' : 'Prüfen'}
-                  </button>
+                  <div className={`${barcodeBarcodeActions} w-[8.75rem]`}>
+                    <button
+                      type="button"
+                      className={`inventur-add-dialog-scan-toggle inventur-add-dialog-scan-toggle--row${scanExpanded ? ' inventur-add-dialog-scan-toggle--active' : ''}`}
+                      onClick={toggleScan}
+                      aria-label={scanExpanded ? 'Kamera schließen' : 'Barcode scannen'}
+                      aria-pressed={scanExpanded}
+                    >
+                      <BarcodeScanIcon className="inventur-add-dialog-scan-icon" />
+                    </button>
+                    <button
+                      type="button"
+                      className={barcodeButtonOutline}
+                      disabled={barcodeLookupBusy || !codeTrimmed}
+                      onClick={() => resolveScannedBarcode(barcodeInput)}
+                    >
+                      {barcodeLookupBusy ? '…' : 'Prüfen'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -591,14 +594,19 @@ export function BarcodeScanDialog({
                 </button>
               ) : null}
 
-              <button
-                type="button"
-                className={barcodeButtonPrimary}
-                disabled={barcodeLookupBusy}
-                onClick={() => void handleCreate()}
-              >
-                Artikel anlegen
-              </button>
+              <div className={barcodeDialogActions}>
+                <Dialog.Close type="button" className={barcodeButtonOutline}>
+                  Schließen
+                </Dialog.Close>
+                <button
+                  type="button"
+                  className={barcodeButtonPrimary}
+                  disabled={barcodeLookupBusy}
+                  onClick={() => void handleCreate()}
+                >
+                  Artikel anlegen
+                </button>
+              </div>
             </div>
           ) : (
             <div className="flex flex-col gap-4" role="region" aria-label="Barcode zuordnen">
@@ -674,12 +682,6 @@ export function BarcodeScanDialog({
               {barcodeLookupMessage}
             </p>
           ) : null}
-
-          <div className={barcodeFooter}>
-            <Dialog.Close type="button" className={barcodeButtonOutline}>
-              Schließen
-            </Dialog.Close>
-          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

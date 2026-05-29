@@ -1757,7 +1757,7 @@ function App({ countingApp = false } = {}) {
 
   return (
     <>
-      <Toaster closeButton position="top-center" />
+      <Toaster closeButton position="bottom-right" richColors />
       {authReady && !currentUser ? <LoginView /> : null}
 
       {/* Mobile: Hamburger + Side-Menü */}
@@ -1838,21 +1838,6 @@ function App({ countingApp = false } = {}) {
             ) : null}
           </div>
           <div className="side-menu-end">
-            {countingApp && currentUser && userCan(currentUser, 'inventur') ? (
-              <button
-                type="button"
-                className="counting-cmdk-trigger"
-                onClick={openCountingCommandPalette}
-                aria-label="Suche und Aktionen öffnen"
-              >
-                <Search size={14} strokeWidth={2} aria-hidden />
-                <span className="counting-cmdk-trigger-label">Suche &amp; Aktionen</span>
-                <span className="counting-cmdk-trigger-kbd" aria-hidden>
-                  <kbd className="counting-cmdk-kbd">⌘</kbd>
-                  <kbd className="counting-cmdk-kbd">K</kbd>
-                </span>
-              </button>
-            ) : null}
             {!countingApp && currentUser && userCan(currentUser, 'magazin:read') ? (
               <button
                 type="button"

@@ -612,7 +612,10 @@ export function MagazinShell({
           r.status === 404
             ? `Rechnungs-API nicht gefunden (HTTP 404). Server mit aktuellem Code neu starten („npm run server“, Port ${portHint}). Bei nur Vite: „npm run dev:full“.`
             : `HTTP ${r.status} — läuft „npm run server“?`
-        toast.error(typeof data.error === 'string' ? data.error : apiHint)
+        if (import.meta.env.DEV && typeof data.error === 'string') {
+          console.warn('[PDF-Import]', data.error, apiHint)
+        }
+        toast.error('PDF konnte nicht verarbeitet werden')
         return
       }
       const pdfRows = Array.isArray(data.rows) ? data.rows : []
@@ -641,18 +644,15 @@ export function MagazinShell({
             '[PDF-Import] Kein Treffer. Rohtext (erste 3000 Zeichen):\n' + data.rawTextSample
           )
         }
-        const hint =
-          typeof data.rawTextSample === 'string' && data.rawTextSample.trim()
-            ? ' Rohtext in der Browser-Konsole (F12 → Console) — bitte weiterleiten.'
-            : ''
-        toast.error('Keine Positionszeilen erkannt — anderes PDF-Layout?' + hint)
+        toast.warning('Keine Positionen erkannt – nur SAGA-Format wird unterstützt')
         return
       }
       setInvoiceParseWarnings(warnings)
       setInvoiceImportRows(mapped)
       setInvoiceImportOpen(true)
     } catch (err) {
-      toast.error(err?.message || 'PDF konnte nicht gelesen werden.')
+      if (import.meta.env.DEV && err?.message) console.warn('[PDF-Import]', err.message)
+      toast.error('PDF konnte nicht verarbeitet werden')
     }
   }
 
@@ -936,11 +936,7 @@ export function MagazinShell({
               else fail += 1
             }
           }
-          const parts = []
-          if (ok) parts.push(`${ok} übernommen`)
-          if (fail) parts.push(`${fail} fehlgeschlagen`)
-          if (fail === 0) toast.success(parts.join(' — ') || 'Fertig.')
-          else toast.error(parts.join(' — '))
+          return { ok, fail }
         }}
       />
       <CommandPalette
