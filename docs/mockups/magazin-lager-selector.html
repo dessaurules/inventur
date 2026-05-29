@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup: Magazin — Lager-Auswahl</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; font-size: 14px; background: #f8fafc; color: #0f172a; height: 100vh; display: flex; flex-direction: column; }
+
+    /* Topbar */
+    .topbar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 0 1rem; height: 48px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+    .brand { font-weight: 700; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+    .brand-dot { width: 24px; height: 24px; background: #0f172a; border-radius: 6px; }
+    .nav { display: flex; gap: 4px; }
+    .nav button { padding: 5px 10px; border: none; background: transparent; border-radius: 6px; font-weight: 700; color: #64748b; cursor: pointer; }
+    .nav button.active { background: #f1f5f9; color: #0f172a; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #64748b; }
+
+    /* Layout */
+    .layout { display: grid; grid-template-columns: 220px 1fr 360px; flex: 1; min-height: 0; }
+
+    /* Sidebar */
+    .sidebar { border-right: 1px solid #e2e8f0; background: #fff; display: flex; flex-direction: column; overflow-y: auto; }
+    .lager-selector-wrap { padding: 10px 12px 6px; border-bottom: 1px solid #f1f5f9; }
+    .lager-selector-label { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+    .lager-dropdown { width: 100%; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 13px; font-weight: 600; color: #0f172a; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+    .sidebar-section { padding: 8px 12px; }
+    .sidebar-section-title { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .05em; padding: 6px 0 4px; }
+    .cat-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+    .cat-row:hover { background: #f8fafc; }
+    .cat-row.active { background: #f1f5f9; }
+    .cat-name { font-size: 13px; font-weight: 500; color: #0f172a; }
+    .cat-count { font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 1px 6px; border-radius: 999px; }
+    .cat-row.active .cat-count { background: #e2e8f0; }
+    .divider { height: 1px; background: #f1f5f9; margin: 4px 12px; }
+
+    /* Artikel-Liste */
+    .main { display: flex; flex-direction: column; }
+    .toolbar { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid #f1f5f9; background: #fff; }
+    .search { flex: 1; height: 32px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 0 10px; font-size: 13px; }
+    .sort-btn { height: 32px; padding: 0 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; color: #64748b; }
+    .artikel-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .artikel-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+    .artikel-row:hover { background: #f8fafc; border-color: #f1f5f9; }
+    .artikel-row.selected { background: #eff6ff; border-color: #bfdbfe; }
+    .artikel-name { font-size: 13px; font-weight: 500; color: #0f172a; }
+    .artikel-meta { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+    .artikel-price { margin-left: auto; font-size: 13px; font-weight: 600; color: #0f172a; white-space: nowrap; }
+    .artikel-cat { font-size: 11px; background: #f1f5f9; color: #64748b; padding: 1px 7px; border-radius: 999px; }
+
+    /* Detail */
+    .detail { border-left: 1px solid #e2e8f0; background: #fff; display: flex; flex-direction: column; }
+    .detail-header { padding: 16px; border-bottom: 1px solid #f1f5f9; }
+    .detail-title { font-size: 15px; font-weight: 600; }
+    .detail-sub { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+    .detail-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .field-group { display: flex; flex-direction: column; gap: 4px; }
+    .field-label { font-size: 11px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+    .field-value { font-size: 13px; color: #0f172a; padding: 6px 10px; border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; }
+    .field-value.highlight { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; font-weight: 600; }
+
+    /* Badge */
+    .lager-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: #eff6ff; color: #2563eb; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      Inventur
+    </div>
+    <div class="nav">
+      <button>Inventuren</button>
+      <button>Lagerverwaltung</button>
+      <button class="active">Magazin</button>
+      <button>Mitarbeiter</button>
+    </div>
+    <div class="avatar">RB</div>
+  </div>
+
+  <!-- Hauptlayout -->
+  <div class="layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <!-- Lager-Auswahl -->
+      <div class="lager-selector-wrap">
+        <div class="lager-selector-label">Lager</div>
+        <select class="lager-dropdown" onchange="switchLager(this.value)">
+          <option value="lager-a">🏪 Hauptlager</option>
+          <option value="lager-b">🏭 Außenlager</option>
+        </select>
+      </div>
+
+      <!-- Kategorien -->
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Kategorien</div>
+        <div class="cat-row active" onclick="selectCat(this)">
+          <span class="cat-name">Alle</span>
+          <span class="cat-count">24</span>
+        </div>
+        <div class="cat-row" onclick="selectCat(this)">
+          <span class="cat-name">Getränke</span>
+          <span class="cat-count">12</span>
+        </div>
+        <div class="cat-row" onclick="selectCat(this)">
+          <span class="cat-name">Snacks</span>
+          <span class="cat-count">7</span>
+        </div>
+        <div class="cat-row" onclick="selectCat(this)">
+          <span class="cat-name">Reinigung</span>
+          <span class="cat-count">5</span>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-title">Smart-Listen</div>
+        <div class="cat-row" onclick="selectCat(this)">
+          <span class="cat-name">Ohne Kategorie</span>
+          <span class="cat-count">3</span>
+        </div>
+        <div class="cat-row" onclick="selectCat(this)">
+          <span class="cat-name">Archiviert</span>
+          <span class="cat-count">8</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Artikel-Liste -->
+    <main class="main">
+      <div class="toolbar">
+        <input class="search" placeholder="Suche nach Artikeln…" />
+        <button class="sort-btn">Sortierung ▾</button>
+      </div>
+      <div class="artikel-list" id="artikel-list">
+        <!-- Wird per JS befüllt -->
+      </div>
+    </main>
+
+    <!-- Detail-Panel -->
+    <div class="detail">
+      <div class="detail-header">
+        <div class="detail-title">Augustiner Hell 0,5L</div>
+        <div class="detail-sub">Art.-Nr. 1042 · <span class="lager-badge">📦 Hauptlager</span></div>
+      </div>
+      <div class="detail-body">
+        <div class="field-group">
+          <div class="field-label">Preis</div>
+          <div class="field-value">1,89 €</div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Einheit</div>
+          <div class="field-value">Flasche</div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Kategorie</div>
+          <div class="field-value">Getränke</div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Lager</div>
+          <div class="field-value highlight">Hauptlager</div>
+        </div>
+        <div class="field-group">
+          <div class="field-label">Stück/Liefergebinde</div>
+          <div class="field-value">20</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DATA = {
+      'lager-a': [
+        { name: 'Augustiner Hell 0,5L', art: '1042', cat: 'Getränke', price: '1,89 €' },
+        { name: 'Paulaner Weizen 0,5L', art: '1043', cat: 'Getränke', price: '1,99 €' },
+        { name: 'Coca-Cola 0,33L Dose', art: '1101', cat: 'Getränke', price: '0,89 €' },
+        { name: 'Chips Paprika 150g', art: '2001', cat: 'Snacks', price: '1,29 €' },
+        { name: 'Nüsse Gemischt 200g', art: '2002', cat: 'Snacks', price: '2,49 €' },
+        { name: 'Domestos WC', art: '3001', cat: 'Reinigung', price: '2,19 €' },
+      ],
+      'lager-b': [
+        { name: 'Helles vom Fass 5L', art: '5001', cat: 'Getränke', price: '18,90 €' },
+        { name: 'Mineralwasser 6er', art: '5002', cat: 'Getränke', price: '3,99 €' },
+        { name: 'Besen Küche', art: '6001', cat: 'Reinigung', price: '7,50 €' },
+      ]
+    }
+
+    function renderList(lager) {
+      const list = document.getElementById('artikel-list')
+      list.innerHTML = DATA[lager].map((a, i) => `
+        <div class="artikel-row ${i === 0 ? 'selected' : ''}" onclick="selectRow(this)">
+          <div>
+            <div class="artikel-name">${a.name}</div>
+            <div class="artikel-meta">Art.-Nr. ${a.art}</div>
+          </div>
+          <span class="artikel-cat">${a.cat}</span>
+          <span class="artikel-price">${a.price}</span>
+        </div>
+      `).join('')
+    }
+
+    function switchLager(val) { renderList(val) }
+    function selectCat(el) {
+      document.querySelectorAll('.cat-row').forEach(r => r.classList.remove('active'))
+      el.classList.add('active')
+    }
+    function selectRow(el) {
+      document.querySelectorAll('.artikel-row').forEach(r => r.classList.remove('selected'))
+      el.classList.add('selected')
+    }
+
+    renderList('lager-a')
+  </script>
+</body>
+</html>
