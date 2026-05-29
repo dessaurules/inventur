@@ -680,69 +680,63 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         </p>
       ) : null}
 
-      <div className="flex h-12 shrink-0 items-center border-b border-border bg-background px-3">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-3 gap-2">
         <span id="lagerverwaltung-page-h1" className="text-sm font-semibold text-foreground">
           Lagerverwaltung
         </span>
+        <div className="relative flex shrink-0 items-center gap-2" ref={tenantMenuRef}>
+          <button
+            type="button"
+            className={cn(
+              'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[12.5px] font-medium text-foreground',
+              'hover:bg-muted'
+            )}
+            aria-expanded={tenantMenuOpen}
+            onClick={() => setTenantMenuOpen((o) => !o)}
+          >
+            <span className="max-w-[12rem] truncate sm:max-w-[14rem]">{currentStandortName}</span>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+          </button>
+          {tenantMenuOpen ? (
+            <div
+              className="absolute right-0 top-full z-30 mt-1 min-w-[12rem] rounded-md border border-border bg-background py-1 shadow-md"
+              role="menu"
+            >
+              {standorteList.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  role="menuitem"
+                  className={cn(
+                    'block w-full px-3 py-2 text-left text-[12.5px] hover:bg-muted',
+                    s.id === standortId && 'bg-muted/60'
+                  )}
+                  onClick={() => pickStandort(s.id)}
+                >
+                  {s.name || s.id}
+                </button>
+              ))}
+              {recordPbAdmin(pb.authStore.model ?? undefined) && !readOnly ? (
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="block w-full border-t border-border px-3 py-2 text-left text-[12.5px] font-medium text-primary hover:bg-muted"
+                  onClick={() => {
+                    setTenantMenuOpen(false)
+                    void createStandort()
+                  }}
+                >
+                  Weiteres anlegen
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-        <header className="shrink-0 space-y-2 border-b border-border px-3 py-2">
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <h2 className="truncate text-sm font-semibold text-foreground">{workspaceListTitle}</h2>
-              <p className="text-[12px] text-muted-foreground tabular-nums">{workspaceListMeta}</p>
-            </div>
-            <div className="relative flex shrink-0 items-center gap-2" ref={tenantMenuRef}>
-              <span className="hidden text-[12px] text-muted-foreground sm:inline">Unternehmen:</span>
-              <button
-                type="button"
-                className={cn(
-                  'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[12.5px] font-medium text-foreground',
-                  'hover:bg-muted'
-                )}
-                aria-expanded={tenantMenuOpen}
-                onClick={() => setTenantMenuOpen((o) => !o)}
-              >
-                <span className="max-w-[12rem] truncate sm:max-w-[14rem]">{currentStandortName}</span>
-                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-              </button>
-              {tenantMenuOpen ? (
-                <div
-                  className="absolute right-0 top-full z-30 mt-1 min-w-[12rem] rounded-md border border-border bg-background py-1 shadow-md"
-                  role="menu"
-                >
-                  {standorteList.map((s) => (
-                    <button
-                      key={s.id}
-                      type="button"
-                      role="menuitem"
-                      className={cn(
-                        'block w-full px-3 py-2 text-left text-[12.5px] hover:bg-muted',
-                        s.id === standortId && 'bg-muted/60'
-                      )}
-                      onClick={() => pickStandort(s.id)}
-                    >
-                      {s.name || s.id}
-                    </button>
-                  ))}
-                  {recordPbAdmin(pb.authStore.model ?? undefined) && !readOnly ? (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="block w-full border-t border-border px-3 py-2 text-left text-[12.5px] font-medium text-primary hover:bg-muted"
-                      onClick={() => {
-                        setTenantMenuOpen(false)
-                        void createStandort()
-                      }}
-                    >
-                      Weiteres anlegen
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </div>
+        <header className="shrink-0 border-b border-border px-3 py-2">
+
           <div className="flex flex-wrap gap-2" role="tablist" aria-label="Bereiche">
             <button
               type="button"
