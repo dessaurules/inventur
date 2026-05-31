@@ -129,65 +129,41 @@ export function ArticleList({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-      <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+      <header className="flex h-12 items-center gap-2 border-b border-border px-3 py-2">
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-sm font-semibold text-foreground">{title}</h2>
-          <p className="text-[12px] text-muted-foreground tabular-nums">{totalCount} Artikel</p>
+          <div className="truncate text-sm font-semibold text-foreground">
+            {title}
+            <span className="ml-1 text-muted-foreground">({totalCount})</span>
+          </div>
         </div>
-        <Tooltip.Provider delayDuration={400}>
-          {onPdfInvoiceClick ? (
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  type="button"
-                  onClick={onPdfInvoiceClick}
-                  className={cn(
-                    'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-[12.5px]',
-                    'hover:bg-muted'
-                  )}
-                  aria-label="Rechnung hochladen"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  side="bottom"
-                  sideOffset={6}
-                  className="z-[300] max-w-[220px] rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground shadow-md"
-                >
-                  Rechnung hochladen — Preise aus E-Preis / Gebinde
-                  <Tooltip.Arrow className="fill-border" width={10} height={5} />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-          ) : null}
-          <Tooltip.Root>
-            <Tooltip.Trigger asChild>
-              <button
-                type="button"
-                onClick={onExcelClick}
-                className={cn(
-                  'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-[12.5px]',
-                  'hover:bg-muted'
-                )}
-                aria-label="Excel hochladen"
-              >
-                <FileSpreadsheet className="h-3.5 w-3.5" />
-              </button>
-            </Tooltip.Trigger>
-            <Tooltip.Portal>
-              <Tooltip.Content
-                side="bottom"
-                sideOffset={6}
-                className="z-[300] max-w-[220px] rounded-md border border-border bg-background px-2 py-1.5 text-[12px] text-foreground shadow-md"
-              >
-                Excel hochladen — Artikel importieren
-                <Tooltip.Arrow className="fill-border" width={10} height={5} />
-              </Tooltip.Content>
-            </Tooltip.Portal>
-          </Tooltip.Root>
-        </Tooltip.Provider>
+        {onPdfInvoiceClick ? (
+          <button
+            type="button"
+            onClick={onPdfInvoiceClick}
+            className={cn(
+              'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-[12.5px]',
+              'hover:bg-muted'
+            )}
+            aria-label="Rechnung hochladen"
+            title="Rechnung hochladen — Preise aus E-Preis / Gebinde"
+          >
+            <FileText className="h-3.5 w-3.5" />
+            PDF
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={onExcelClick}
+          className={cn(
+            'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2 text-[12.5px]',
+            'hover:bg-muted'
+          )}
+          aria-label="Excel hochladen"
+          title="Excel hochladen — Artikel importieren"
+        >
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          Excel
+        </button>
         <button
           type="button"
           onClick={onNewArticle}

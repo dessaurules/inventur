@@ -810,15 +810,15 @@ export default function MitarbeiterVerwaltenSection() {
           <h1 id="mitarbeiter-page-h1" className="text-[22px] font-semibold tracking-[-0.01em] text-foreground">
             Mitarbeiter
           </h1>
-          <p className="mt-1 max-w-2xl text-[13px] text-muted-foreground">
-            Konten, Rollen und Einladungen für ‚{tenantLabel}‘ pflegen.
-            {' '}
-            <span className="text-[12px] opacity-95">
-              Spalte „Status“: <strong>Aktiv</strong> zeigt geschätztes Online‑Sein (App geöffnet, Aktualisierung ca. alle 45 s;
-              nach {Math.round(USER_PRESENCE_ONLINE_MS / 60000)} Min. ohne Signal = <strong>Inaktiv</strong>).
-              E‑Mail‑Bestätigung („Anmeldung erlaubt“ im Detail).
-            </span>
-          </p>
+        </div>
+      </header>
+
+      <div className="mb-3 flex min-h-[40px] flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div className="flex flex-wrap gap-4" role="tablist" aria-label="Status">
+          {tabBtn('all', 'Alle', counts.all)}
+          {tabBtn('active', 'Aktiv', counts.active)}
+          {tabBtn('inactive', 'Inaktiv', counts.inactive)}
+          {canManageInvites ? tabBtn('invites', 'Einladungen', counts.invites) : null}
         </div>
         <div className="flex shrink-0 flex-wrap gap-2">
           {canManageInvites ? (
@@ -839,51 +839,6 @@ export default function MitarbeiterVerwaltenSection() {
             <Plus className="h-3.5 w-3.5" aria-hidden />
             Nutzer anlegen
           </button>
-        </div>
-      </header>
-
-      <div className="mb-3 flex min-h-[40px] flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-        <div className="flex flex-wrap gap-4" role="tablist" aria-label="Status">
-          {tabBtn('all', 'Alle', counts.all)}
-          {tabBtn('active', 'Aktiv', counts.active)}
-          {tabBtn('inactive', 'Inaktiv', counts.inactive)}
-          {canManageInvites ? tabBtn('invites', 'Einladungen', counts.invites) : null}
-        </div>
-        <div className="relative" ref={roleFilterRef}>
-          <button
-            type="button"
-            onClick={() => setRoleFilterOpen((o) => !o)}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[12.5px] font-medium text-foreground hover:bg-muted"
-            aria-expanded={roleFilterOpen}
-          >
-            <Filter className="h-3.5 w-3.5 opacity-70" aria-hidden />
-            {ROLE_FILTER_OPTIONS.find((o) => o.value === roleFilter)?.label ?? 'Rolle'}
-            <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden />
-          </button>
-          {roleFilterOpen ? (
-            <div
-              className="absolute right-0 top-full z-40 mt-1 min-w-[11rem] rounded-md border border-border bg-background py-1 shadow-md"
-              role="menu"
-            >
-              {ROLE_FILTER_OPTIONS.map((o) => (
-                <button
-                  key={o.value || 'all'}
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    'block w-full px-3 py-2 text-left text-[12.5px] hover:bg-muted',
-                    o.value === roleFilter && 'bg-muted/60'
-                  )}
-                  onClick={() => {
-                    setRoleFilter(o.value)
-                    setRoleFilterOpen(false)
-                  }}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
       </div>
 

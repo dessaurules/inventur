@@ -93,17 +93,19 @@ export function DetailDrawer({
       aria-hidden={!open}
       aria-label="Artikeldetails"
     >
-      <header className="flex items-start gap-2 border-b border-border px-3 py-2">
+      <header className="flex h-12 items-center gap-2 border-b border-border px-3 py-2">
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[12px] text-muted-foreground tabular-nums">
-            {artikel ? `#${artikel.artikelnummer || artikel.nr}` : '—'}
-          </p>
-          <h3 className="truncate text-sm font-semibold text-foreground">{artikel?.name || 'Neuer Artikel'}</h3>
+          <div className="truncate text-sm font-semibold text-foreground">
+            {artikel?.name || 'Neuer Artikel'}
+            {artikel && artikel.artikelnummer && (
+              <span className="ml-2 font-mono text-[12px] text-muted-foreground">#{artikel.artikelnummer}</span>
+            )}
+          </div>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+          className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           aria-label="Schließen"
         >
           <X className="h-4 w-4" />

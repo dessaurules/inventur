@@ -923,7 +923,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             value={assignUserId}
                             onChange={(e) => setAssignUserId(e.target.value)}
                             disabled={busy}
-                            className="h-7 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]"
+                            className="h-7 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]"
                             aria-label="Nutzer"
                           >
                             <option value="">Nutzer hinzufügen …</option>
@@ -955,9 +955,20 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                                 return (
                                   <li
                                     key={row.id}
-                                    className="px-2.5 py-1.5 text-[12px] text-foreground"
+                                    className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-[12px] text-foreground"
                                   >
-                                    {em}
+                                    <span>{em}</span>
+                                    {!readOnly && (
+                                      <button
+                                        type="button"
+                                        className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
+                                        onClick={() => void removeAssignment(row.id)}
+                                        disabled={busy}
+                                        aria-label={`${em} entfernen`}
+                                      >
+                                        <X className="h-2.5 w-2.5" aria-hidden />
+                                      </button>
+                                    )}
                                   </li>
                                 )
                               })}
@@ -1103,10 +1114,13 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                     ) : (
                       <ul className="divide-y divide-border text-[12px]">
                         {lagerArticles.map((a) => (
-                          <li key={a.id} className="flex items-center justify-between gap-2 px-3 py-1">
-                            <span className="min-w-0 truncate font-medium text-[12px]">{a.name}</span>
+                          <li key={a.id} className="flex items-center gap-2 px-3 py-1">
+                            <span className="min-w-0 flex-1 truncate font-medium text-[12px]">{a.name}</span>
+                            <span className="shrink-0 whitespace-nowrap text-[11px] text-right text-muted-foreground">
+                              {a.einheit}
+                            </span>
                             <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
-                              {a.einheit} · {Number(a.preis).toFixed(2)}€
+                              {Number(a.preis).toFixed(2)}€
                             </span>
                           </li>
                         ))}

@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Magazin Header Varianten</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [data-variant] { display: none; }
+    [data-variant].active { display: flex; }
+    .tab-button {
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .tab-button.active {
+      border-bottom-color: currentColor;
+      color: rgb(59, 130, 246);
+    }
+    .tab-button:hover:not(.active) {
+      color: rgb(107, 114, 128);
+    }
+  </style>
+</head>
+<body class="bg-slate-50">
+  <!-- Navigation / Tabs -->
+  <div class="border-b border-slate-200 bg-white px-4">
+    <div class="flex gap-8">
+      <button class="tab-button active" onclick="switchVariant(1)">
+        Variante 1: Flache Hierarchie
+      </button>
+      <button class="tab-button" onclick="switchVariant(2)">
+        Variante 2: Zwei-Ebenen
+      </button>
+      <button class="tab-button" onclick="switchVariant(3)">
+        Variante 3: Minimalistische Asymmetrie
+      </button>
+    </div>
+  </div>
+
+  <!-- VARIANTE 1: Flache Hierarchie -->
+  <div data-variant="1" class="active h-screen flex-col">
+    <div class="flex h-full bg-white">
+      <!-- Left Sidebar -->
+      <div class="w-56 border-r border-slate-200 flex flex-col">
+        <div class="h-12 flex items-center px-3 border-b border-slate-200">
+          <span class="text-sm font-semibold text-slate-900">Kategorien</span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-2">
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Getränke</div>
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Lebensmittel</div>
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Zubehör</div>
+          <div class="px-2 py-1.5 rounded bg-blue-50 text-blue-700 cursor-pointer text-sm font-medium">📁 Ohne Kategorie</div>
+        </div>
+      </div>
+
+      <!-- Center: Article List -->
+      <div class="flex-1 flex flex-col border-r border-slate-200">
+        <div class="h-12 flex items-center justify-between px-3 border-b border-slate-200">
+          <span class="text-sm font-semibold text-slate-900">Alle (142 Artikel)</span>
+          <div class="flex gap-1">
+            <button class="px-2 py-1 hover:bg-slate-100 rounded text-xs">⬇ Name</button>
+            <button class="px-2 py-1 hover:bg-slate-100 rounded text-xs">🔍</button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <div class="grid grid-cols-[2rem_5.5rem_1fr_auto_auto] gap-2 px-3 text-xs border-b border-slate-200 py-1.5 hover:bg-slate-50 cursor-pointer">
+            <div>☐</div>
+            <div class="font-mono text-slate-500">ART-001</div>
+            <div class="truncate">Heineken Flasche 0,5L</div>
+            <div class="text-slate-500">Stk</div>
+            <div class="font-mono">2,50 €</div>
+          </div>
+          <div class="grid grid-cols-[2rem_5.5rem_1fr_auto_auto] gap-2 px-3 text-xs border-b border-slate-200 py-1.5 hover:bg-slate-50 cursor-pointer">
+            <div>☐</div>
+            <div class="font-mono text-slate-500">ART-002</div>
+            <div class="truncate">Coca Cola Flasche 0,33L</div>
+            <div class="text-slate-500">Stk</div>
+            <div class="font-mono">1,80 €</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Detail Drawer -->
+      <div class="w-96 flex flex-col border-l border-slate-200 bg-slate-50">
+        <div class="h-12 flex items-center justify-between px-3 border-b border-slate-200">
+          <div class="min-w-0 flex-1">
+            <p class="font-mono text-xs text-slate-500">ART-001</p>
+            <h3 class="text-sm font-semibold text-slate-900 truncate">Heineken Flasche 0,5L</h3>
+          </div>
+          <button class="p-1 hover:bg-slate-200 rounded text-xs">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          <div class="text-xs text-slate-600">● Alle Änderungen gespeichert</div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-medium text-slate-700">Artikelnummer</label>
+              <input type="text" value="ART-001" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Name</label>
+              <input type="text" value="Heineken Flasche 0,5L" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Preis</label>
+              <input type="text" value="2,50 €" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANTE 2: Zwei-Ebenen -->
+  <div data-variant="2" class="h-screen flex-col">
+    <div class="h-12 flex items-center px-3 border-b border-slate-200 bg-white">
+      <span class="text-sm font-semibold text-slate-900">🏪 Magazin</span>
+    </div>
+
+    <div class="flex h-full bg-white">
+      <!-- Left Sidebar -->
+      <div class="w-56 border-r border-slate-200 flex flex-col">
+        <div class="h-10 flex items-center px-3 border-b border-slate-200 bg-slate-50">
+          <span class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Kategorien</span>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-2">
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Getränke</div>
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Lebensmittel</div>
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Zubehör</div>
+          <div class="px-2 py-1.5 rounded bg-blue-50 text-blue-700 cursor-pointer text-sm font-medium">📁 Ohne Kategorie</div>
+        </div>
+      </div>
+
+      <!-- Center: Article List -->
+      <div class="flex-1 flex flex-col border-r border-slate-200">
+        <div class="h-10 flex items-center justify-between px-3 border-b border-slate-200 bg-slate-50">
+          <span class="text-xs font-semibold text-slate-700 uppercase tracking-wide">Artikel</span>
+          <div class="flex gap-1">
+            <button class="px-2 py-1 hover:bg-slate-100 rounded text-xs">⬇ Name</button>
+            <button class="px-2 py-1 hover:bg-slate-100 rounded text-xs">🔍</button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <div class="grid grid-cols-[2rem_5.5rem_1fr_auto_auto] gap-2 px-3 text-xs border-b border-slate-200 py-1.5 hover:bg-slate-50 cursor-pointer">
+            <div>☐</div>
+            <div class="font-mono text-slate-500">ART-001</div>
+            <div class="truncate">Heineken Flasche 0,5L</div>
+            <div class="text-slate-500">Stk</div>
+            <div class="font-mono">2,50 €</div>
+          </div>
+          <div class="grid grid-cols-[2rem_5.5rem_1fr_auto_auto] gap-2 px-3 text-xs border-b border-slate-200 py-1.5 hover:bg-slate-50 cursor-pointer">
+            <div>☐</div>
+            <div class="font-mono text-slate-500">ART-002</div>
+            <div class="truncate">Coca Cola Flasche 0,33L</div>
+            <div class="text-slate-500">Stk</div>
+            <div class="font-mono">1,80 €</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Detail Drawer -->
+      <div class="w-96 flex flex-col border-l border-slate-200 bg-slate-50">
+        <div class="h-10 flex items-center justify-between px-3 border-b border-slate-200 bg-white">
+          <div class="min-w-0 flex-1">
+            <p class="font-mono text-xs text-slate-500">ART-001</p>
+            <h3 class="text-sm font-semibold text-slate-900 truncate">Heineken Flasche 0,5L</h3>
+          </div>
+          <button class="p-1 hover:bg-slate-200 rounded text-xs">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          <div class="text-xs text-slate-600">● Alle Änderungen gespeichert</div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-medium text-slate-700">Artikelnummer</label>
+              <input type="text" value="ART-001" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Name</label>
+              <input type="text" value="Heineken Flasche 0,5L" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Preis</label>
+              <input type="text" value="2,50 €" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VARIANTE 3: Minimalistische Asymmetrie -->
+  <div data-variant="3" class="h-screen flex-col">
+    <div class="flex h-full bg-white">
+      <!-- Left Sidebar (minimal) -->
+      <div class="w-56 border-r border-slate-200 flex flex-col">
+        <div class="flex-1 overflow-y-auto p-3 space-y-2">
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Getränke</div>
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Lebensmittel</div>
+          <div class="px-2 py-1.5 rounded hover:bg-slate-100 cursor-pointer text-sm">📁 Zubehör</div>
+          <div class="px-2 py-1.5 rounded bg-blue-50 text-blue-700 cursor-pointer text-sm font-medium">📁 Ohne Kategorie</div>
+        </div>
+      </div>
+
+      <!-- Center: Article List -->
+      <div class="flex-1 flex flex-col border-r border-slate-200">
+        <div class="h-12 flex items-center justify-between px-3 border-b border-slate-200">
+          <span class="text-sm font-semibold text-slate-900">Alle (142 Artikel)</span>
+          <div class="flex gap-1">
+            <button class="px-2 py-1 hover:bg-slate-100 rounded text-xs">⬇ Name</button>
+            <button class="px-2 py-1 hover:bg-slate-100 rounded text-xs">🔍</button>
+          </div>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+          <div class="grid grid-cols-[2rem_5.5rem_1fr_auto_auto] gap-2 px-3 text-xs border-b border-slate-200 py-1.5 hover:bg-slate-50 cursor-pointer">
+            <div>☐</div>
+            <div class="font-mono text-slate-500">ART-001</div>
+            <div class="truncate">Heineken Flasche 0,5L</div>
+            <div class="text-slate-500">Stk</div>
+            <div class="font-mono">2,50 €</div>
+          </div>
+          <div class="grid grid-cols-[2rem_5.5rem_1fr_auto_auto] gap-2 px-3 text-xs border-b border-slate-200 py-1.5 hover:bg-slate-50 cursor-pointer">
+            <div>☐</div>
+            <div class="font-mono text-slate-500">ART-002</div>
+            <div class="truncate">Coca Cola Flasche 0,33L</div>
+            <div class="text-slate-500">Stk</div>
+            <div class="font-mono">1,80 €</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Detail Drawer (minimal header) -->
+      <div class="w-96 flex flex-col border-l border-slate-200 bg-slate-50">
+        <div class="flex items-start gap-2 px-3 py-2 border-b border-slate-200">
+          <div class="min-w-0 flex-1">
+            <p class="font-mono text-xs text-slate-500">ART-001</p>
+            <h3 class="text-sm font-semibold text-slate-900 truncate">Heineken Flasche 0,5L</h3>
+          </div>
+          <button class="p-1 hover:bg-slate-200 rounded text-xs shrink-0">✕</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-4">
+          <div class="text-xs text-slate-600">● Alle Änderungen gespeichert</div>
+          <div class="space-y-3">
+            <div>
+              <label class="text-xs font-medium text-slate-700">Artikelnummer</label>
+              <input type="text" value="ART-001" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Name</label>
+              <input type="text" value="Heineken Flasche 0,5L" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-700">Preis</label>
+              <input type="text" value="2,50 €" class="w-full px-2 py-1 border border-slate-300 rounded text-xs mt-1">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchVariant(num) {
+      // Hide all
+      document.querySelectorAll('[data-variant]').forEach(el => el.classList.remove('active'));
+      // Show selected
+      document.querySelector(`[data-variant="${num}"]`).classList.add('active');
+      // Update tabs
+      document.querySelectorAll('.tab-button').forEach((btn, i) => {
+        btn.classList.toggle('active', i + 1 === num);
+      });
+    }
+  </script>
+</body>
+</html>

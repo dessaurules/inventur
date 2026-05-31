@@ -173,9 +173,9 @@ export function SidebarCategories({
   const [noCatC, recentC, archivedC] = smartCounts
 
   return (
-    <aside className="flex w-[220px] shrink-0 flex-col border-r border-border bg-background">
-      <div className="border-b border-border px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Magazin
+    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-background">
+      <div className="flex h-12 items-center border-b border-border px-3 py-2">
+        <span className="text-sm font-semibold text-foreground">Kategorien</span>
       </div>
       <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2" aria-label="Kategorien">
         <div>

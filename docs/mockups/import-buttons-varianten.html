@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Import Buttons Varianten</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [data-variant] { display: none; }
+    [data-variant].active { display: flex; }
+    .tab-button {
+      padding: 0.75rem 1rem;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+    .tab-button.active {
+      border-bottom-color: currentColor;
+      color: rgb(59, 130, 246);
+    }
+    .tab-button:hover:not(.active) {
+      color: rgb(107, 114, 128);
+    }
+    .mockup-header {
+      height: 3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border-bottom: 1px solid rgb(226, 232, 240);
+      padding: 0 0.75rem;
+      background: white;
+    }
+    .mockup-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: rgb(15, 23, 42);
+      flex: 1;
+      min-width: 0;
+    }
+    .button-group {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .icon-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      height: 32px;
+      padding: 0 0.5rem;
+      border: 1px solid rgb(226, 232, 240);
+      border-radius: 0.375rem;
+      background: white;
+      cursor: pointer;
+      font-size: 12.5px;
+      transition: background 0.2s;
+    }
+    .icon-btn:hover {
+      background: rgb(241, 245, 249);
+    }
+    .primary-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      height: 32px;
+      padding: 0 0.75rem;
+      border: none;
+      border-radius: 0.375rem;
+      background: rgb(59, 130, 246);
+      color: white;
+      cursor: pointer;
+      font-size: 12.5px;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+    .primary-btn:hover {
+      opacity: 0.9;
+    }
+    .description {
+      font-size: 12px;
+      color: rgb(100, 116, 139);
+      margin-top: 1rem;
+      padding: 0 1rem;
+    }
+  </style>
+</head>
+<body class="bg-slate-100">
+  <div class="border-b border-slate-200 bg-white px-4">
+    <div class="flex gap-8 overflow-x-auto">
+      <button class="tab-button active" onclick="switchVariant(1)">
+        Option A: Text-Labels
+      </button>
+      <button class="tab-button" onclick="switchVariant(2)">
+        Option B: Dropdown-Menü
+      </button>
+      <button class="tab-button" onclick="switchVariant(3)">
+        Option C: Beschreibender Text
+      </button>
+      <button class="tab-button" onclick="switchVariant(4)">
+        Aktuell: Nur Icons
+      </button>
+    </div>
+  </div>
+
+  <!-- Option A: Text-Labels -->
+  <div data-variant="1" class="active h-screen flex-col p-8">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+      <h2 class="text-lg font-semibold mb-4 text-slate-900">Option A: Text-Labels neben Icons</h2>
+
+      <div class="mockup-header">
+        <div class="mockup-title">Alle (142)</div>
+        <div class="button-group">
+          <button class="icon-btn" title="Rechnung hochladen">
+            <span>📄</span>
+            <span>PDF</span>
+          </button>
+          <button class="icon-btn" title="Artikel importieren">
+            <span>📊</span>
+            <span>Excel</span>
+          </button>
+          <button class="primary-btn">
+            <span>➕</span>
+            <span>Artikel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="description">
+        ✅ Pros: Sofort erkannt, kein Hover nötig, kompakt<br>
+        ⚠️ Cons: Ein bisschen mehr Text im Header
+      </div>
+    </div>
+  </div>
+
+  <!-- Option B: Dropdown-Menü -->
+  <div data-variant="2" class="h-screen flex-col p-8">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+      <h2 class="text-lg font-semibold mb-4 text-slate-900">Option B: Ein Dropdown-Menü</h2>
+
+      <div class="mockup-header">
+        <div class="mockup-title">Alle (142)</div>
+        <div class="button-group">
+          <button class="icon-btn" title="Importieren">
+            <span>⬇️</span>
+            <span>Importieren</span>
+            <span style="font-size: 10px;">▼</span>
+          </button>
+          <button class="primary-btn">
+            <span>➕</span>
+            <span>Artikel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="description">
+        Dropdown-Menü zeigt:<br>
+        &nbsp;&nbsp;→ Rechnung (PDF)<br>
+        &nbsp;&nbsp;→ Artikel (Excel)<br>
+        ✅ Pros: Sauberer Header, weniger Clutter<br>
+        ⚠️ Cons: Ein Click mehr zum Importieren
+      </div>
+    </div>
+  </div>
+
+  <!-- Option C: Beschreibender Text -->
+  <div data-variant="3" class="h-screen flex-col p-8">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+      <h2 class="text-lg font-semibold mb-4 text-slate-900">Option C: Beschreibender Text</h2>
+
+      <div class="mockup-header">
+        <div class="mockup-title">Alle (142)</div>
+        <div class="button-group">
+          <button class="icon-btn">
+            <span>📄</span>
+            <span>Rechnung importieren</span>
+          </button>
+          <button class="icon-btn">
+            <span>📊</span>
+            <span>Artikel importieren</span>
+          </button>
+          <button class="primary-btn">
+            <span>➕</span>
+            <span>Artikel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="description">
+        ✅ Pros: Sehr deutlich, kein Missverständnis möglich<br>
+        ⚠️ Cons: Viel Text im Header, braucht Platz
+      </div>
+    </div>
+  </div>
+
+  <!-- Option D: Aktuell (nur Icons) -->
+  <div data-variant="4" class="h-screen flex-col p-8">
+    <div class="bg-white rounded-lg shadow-sm p-6">
+      <h2 class="text-lg font-semibold mb-4 text-slate-900">Option D: Aktueller Stand (nur Icons)</h2>
+
+      <div class="mockup-header">
+        <div class="mockup-title">Alle (142)</div>
+        <div class="button-group">
+          <button class="icon-btn" title="Rechnung hochladen">
+            <span>📄</span>
+          </button>
+          <button class="icon-btn" title="Artikel importieren">
+            <span>📊</span>
+          </button>
+          <button class="primary-btn">
+            <span>➕</span>
+            <span>Artikel</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="description">
+        ✅ Pros: Minimalistisch, sauberer<br>
+        ⚠️ Cons: Icons allein nicht klar, Tooltip nötig zum verstehen
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function switchVariant(num) {
+      document.querySelectorAll('[data-variant]').forEach(el => el.classList.remove('active'));
+      document.querySelector(`[data-variant="${num}"]`).classList.add('active');
+      document.querySelectorAll('.tab-button').forEach((btn, i) => {
+        btn.classList.toggle('active', i + 1 === num);
+      });
+    }
+  </script>
+</body>
+</html>

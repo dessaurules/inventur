@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lagerverwaltung – Redesign v4</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #ffffff;
+      --bg-muted: #f9fafb;
+      --border: #e5e7eb;
+      --fg: #111827;
+      --fg-muted: #6b7280;
+      --primary: #2563eb;
+      --primary-fg: #ffffff;
+      --ring: rgba(37,99,235,0.3);
+      --radius: 6px;
+      --active-bg: #eff6ff;
+      --active-border: #2563eb;
+      --input-border: #d1d5db;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    body { font-family: var(--font); background: #e8eaed; color: var(--fg); font-size: 13px; }
+    button { font-family: inherit; cursor: pointer; }
+    input, select { font-family: inherit; }
+
+    /* App chrome */
+    .app { display: flex; height: 100vh; background: var(--bg); border-radius: 10px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.15); margin: 16px; }
+    .left-nav { width: 52px; background: #0f172a; display: flex; flex-direction: column; align-items: center; padding: 10px 0; gap: 6px; flex-shrink: 0; }
+    .nav-btn { width: 34px; height: 34px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #64748b; font-size: 16px; border: none; background: none; cursor: pointer; }
+    .nav-btn.active { background: var(--primary); color: white; }
+    .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .topbar { height: 44px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 10px; flex-shrink: 0; }
+    .topbar-title { font-size: 13px; font-weight: 600; color: var(--fg); }
+    .topbar-sub { font-size: 12px; color: var(--fg-muted); }
+    .content { flex: 1; display: flex; min-height: 0; overflow: hidden; }
+
+    /* ─── SPALTE 1: Lager-Liste ─── */
+    .col-list { width: 230px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+    .col-search { padding: 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .col-search input { width: 100%; height: 28px; border: 1px solid var(--input-border); border-radius: var(--radius); padding: 0 8px; font-size: 12px; color: var(--fg); background: var(--bg); }
+    .col-search input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring); }
+    .list-header { display: grid; grid-template-columns: 1fr 36px 44px; gap: 4px; padding: 5px 10px; border-bottom: 1px solid var(--border); background: var(--bg); position: sticky; top: 0; }
+    .list-header span { font-size: 10.5px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; color: var(--fg-muted); }
+    .list-header span:not(:first-child) { text-align: right; }
+    .list-body { flex: 1; overflow-y: auto; }
+    .list-item { display: grid; grid-template-columns: 1fr 36px 44px; gap: 4px; padding: 7px 10px; border-bottom: 1px solid var(--border); border-left: 2px solid transparent; cursor: pointer; transition: background 0.1s; }
+    .list-item:hover { background: var(--bg-muted); }
+    .list-item.active { background: var(--active-bg); border-left-color: var(--active-border); }
+    .list-item .lname { font-size: 12.5px; font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .list-item .lnum { font-size: 12px; text-align: right; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+    .list-footer { padding: 8px 10px; border-top: 1px solid var(--border); flex-shrink: 0; }
+    .add-btn-ghost { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--primary); padding: 5px 4px; border-radius: var(--radius); border: none; background: none; width: 100%; }
+    .add-btn-ghost:hover { background: var(--active-bg); }
+
+    /* ─── SPALTE 2: Verwaltung (Mitte) ─── */
+    .col-mgmt { width: 380px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+    .col-header { height: 38px; border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 12px; flex-shrink: 0; }
+    .col-header-label { font-size: 10.5px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--fg-muted); }
+    .lager-name-edit { font-size: 13.5px; font-weight: 600; color: var(--fg); border: 2px solid transparent; padding: 3px 6px; border-radius: var(--radius); width: 100%; background: transparent; transition: border-color 0.15s; }
+    .lager-name-edit:hover { border-color: var(--input-border); }
+    .lager-name-edit:focus { outline: none; border-color: var(--primary); background: var(--bg); }
+    .lager-meta-row { padding: 4px 12px 10px; font-size: 11.5px; color: var(--fg-muted); flex-shrink: 0; }
+    .lager-name-area { padding: 10px 12px 0; flex-shrink: 0; border-bottom: 1px solid var(--border); }
+
+    /* 2-Spalten Bereich unter dem Lager-Header */
+    .mgmt-2col { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); flex: 1; min-height: 0; overflow: hidden; }
+    .mgmt-col { display: flex; flex-direction: column; overflow: hidden; }
+    .mgmt-col:first-child { border-right: 1px solid var(--border); }
+    .mgmt-col-header { padding: 8px 10px 6px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--fg-muted); flex-shrink: 0; border-bottom: 1px solid var(--border); background: var(--bg-muted); }
+    .mgmt-col-scroll { flex: 1; overflow-y: auto; }
+
+    /* Unterlager-Liste */
+    .ul-item { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .ul-item:last-child { border-bottom: none; }
+    .ul-name { font-weight: 500; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .ul-actions { display: flex; gap: 1px; flex-shrink: 0; }
+    .icon-btn { width: 26px; height: 26px; border: none; background: none; border-radius: 5px; display: flex; align-items: center; justify-content: center; color: var(--fg-muted); font-size: 12px; }
+    .icon-btn:hover { background: var(--bg-muted); color: #dc2626; }
+
+    /* Add row */
+    .add-row { display: flex; gap: 4px; padding: 6px 8px; border-top: 1px solid var(--border); background: var(--bg-muted); flex-shrink: 0; }
+    .add-input { height: 30px; flex: 1; border: 1px solid var(--input-border); border-radius: var(--radius); padding: 0 7px; font-size: 11.5px; color: var(--fg); background: var(--bg); min-width: 0; }
+    .add-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring); }
+    .add-input::placeholder { color: var(--fg-muted); }
+    .add-action-btn { height: 30px; padding: 0 8px; background: var(--primary); color: var(--primary-fg); border: none; border-radius: var(--radius); font-size: 11.5px; font-weight: 500; flex-shrink: 0; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .add-action-btn:hover { opacity: 0.88; }
+
+    /* Mitarbeiter-Liste */
+    .ma-item { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 6px 8px; border-bottom: 1px solid var(--border); font-size: 12px; }
+    .ma-item:last-child { border-bottom: none; }
+    .ma-name { font-weight: 500; color: var(--fg); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+    .ma-select { height: 30px; width: 100%; border: 1px solid var(--input-border); border-radius: var(--radius); padding: 0 7px; font-size: 11.5px; color: var(--fg); background: var(--bg); }
+    .ma-select:focus { outline: none; border-color: var(--primary); }
+
+    /* Footer */
+    .mgmt-footer { padding: 8px 12px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; flex-shrink: 0; background: var(--bg); }
+    .footer-btn { height: 32px; padding: 0 12px; border-radius: var(--radius); font-size: 12px; font-weight: 500; border: 1px solid transparent; display: flex; align-items: center; gap: 5px; }
+    .footer-btn-danger { border-color: #fca5a5; color: #dc2626; background: var(--bg); }
+    .footer-btn-danger:hover { background: #fee2e2; }
+    .footer-btn-ghost { border-color: var(--input-border); color: var(--fg-muted); background: var(--bg); }
+    .footer-btn-ghost:hover { background: var(--bg-muted); }
+
+    /* ─── SPALTE 3: Artikel ─── */
+    .col-art { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+    .art-search-row { padding: 7px 10px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .art-search-row input { width: 100%; height: 28px; border: 1px solid var(--input-border); border-radius: var(--radius); padding: 0 8px; font-size: 12px; color: var(--fg); }
+    .art-search-row input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px var(--ring); }
+    .art-list { flex: 1; overflow-y: auto; }
+    .art-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+    .art-item:hover { background: var(--bg-muted); }
+    .art-name { font-size: 12.5px; font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .art-num { font-size: 10.5px; color: var(--fg-muted); margin-top: 1px; }
+    .art-meta { font-size: 11.5px; color: var(--fg-muted); white-space: nowrap; }
+    .art-empty { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12.5px; color: var(--fg-muted); }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Nav -->
+  <nav class="left-nav">
+    <button class="nav-btn active" title="Lagerverwaltung">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+    </button>
+    <button class="nav-btn" title="Magazin">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+    </button>
+    <button class="nav-btn" title="Inventur">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </button>
+    <button class="nav-btn" title="Mitarbeiter">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    </button>
+  </nav>
+
+  <div class="main">
+    <!-- Topbar -->
+    <div class="topbar">
+      <span class="topbar-title">Lagerverwaltung</span>
+      <span class="topbar-sub">Muster-Gaststätte GmbH</span>
+    </div>
+
+    <div class="content">
+
+      <!-- ① Lager-Liste -->
+      <div class="col-list">
+        <div class="col-search">
+          <input type="text" placeholder="Lager suchen …" />
+        </div>
+        <div class="list-header">
+          <span>Name</span>
+          <span>U</span>
+          <span>Art.</span>
+        </div>
+        <div class="list-body">
+          <div class="list-item active">
+            <span class="lname">Restaurant</span>
+            <span class="lnum">2</span>
+            <span class="lnum">132</span>
+          </div>
+          <div class="list-item">
+            <span class="lname">Küche</span>
+            <span class="lnum">3</span>
+            <span class="lnum">48</span>
+          </div>
+          <div class="list-item">
+            <span class="lname">Bar</span>
+            <span class="lnum">1</span>
+            <span class="lnum">31</span>
+          </div>
+          <div class="list-item">
+            <span class="lname">Lager EG</span>
+            <span class="lnum">0</span>
+            <span class="lnum">89</span>
+          </div>
+        </div>
+        <div class="list-footer">
+          <button class="add-btn-ghost">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Neues Lager
+          </button>
+        </div>
+      </div>
+
+      <!-- ② Verwaltung (Mitte) -->
+      <div class="col-mgmt">
+        <div class="col-header">
+          <span class="col-header-label">Verwaltung</span>
+        </div>
+
+        <!-- Lagername -->
+        <div class="lager-name-area">
+          <input type="text" class="lager-name-edit" value="Restaurant" />
+          <div class="lager-meta-row">2 Unterlager · 132 Artikel</div>
+        </div>
+
+        <!-- 2-Spalten: Unterlager | Mitarbeiter -->
+        <div class="mgmt-2col">
+
+          <!-- Unterlager-Spalte -->
+          <div class="mgmt-col">
+            <div class="mgmt-col-header">Unterlager</div>
+            <div class="mgmt-col-scroll">
+              <div class="ul-item">
+                <span class="ul-name">Kühlbereich</span>
+                <div class="ul-actions">
+                  <button class="icon-btn" title="Bearbeiten" style="opacity:0.4; cursor:default;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="icon-btn" title="Entfernen">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              </div>
+              <div class="ul-item">
+                <span class="ul-name">Lager EG</span>
+                <div class="ul-actions">
+                  <button class="icon-btn" title="Bearbeiten" style="opacity:0.4; cursor:default;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </button>
+                  <button class="icon-btn" title="Entfernen">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="add-row">
+              <input type="text" class="add-input" placeholder="Neues Unterlager …" />
+              <button class="add-action-btn">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Hinzufügen
+              </button>
+            </div>
+          </div>
+
+          <!-- Mitarbeiter-Spalte -->
+          <div class="mgmt-col">
+            <div class="mgmt-col-header">Mitarbeiter</div>
+            <div class="mgmt-col-scroll">
+              <div class="ma-item">
+                <span class="ma-name">Ronny Beckmann</span>
+                <button class="icon-btn" title="Entfernen">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              <div class="ma-item">
+                <span class="ma-name">Steffi Hofmann</span>
+                <button class="icon-btn" title="Entfernen">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="add-row">
+              <select class="ma-select" style="height:30px; font-size:11.5px;">
+                <option>Nutzer wählen …</option>
+                <option>Franzi Roth</option>
+                <option>Max Mustermann</option>
+              </select>
+            </div>
+            <div class="add-row" style="padding-top:0; border-top:none;">
+              <button class="add-action-btn" style="width:100%; justify-content:center;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Hinzufügen
+              </button>
+            </div>
+          </div>
+
+        </div><!-- end mgmt-2col -->
+
+        <!-- Footer -->
+        <div class="mgmt-footer">
+          <button class="footer-btn footer-btn-ghost">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+            Archivieren
+          </button>
+          <button class="footer-btn footer-btn-danger">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Löschen
+          </button>
+        </div>
+      </div>
+
+      <!-- ③ Artikel -->
+      <div class="col-art">
+        <div class="col-header" style="justify-content:space-between;">
+          <span class="col-header-label">Artikel – Restaurant</span>
+          <span style="font-size:11.5px; color:var(--fg-muted);">132 Artikel</span>
+        </div>
+        <div class="art-search-row">
+          <input type="text" placeholder="Artikel suchen …" />
+        </div>
+        <div class="art-list">
+          <div class="art-item">
+            <div><div class="art-name">Heineken 0,5l</div><div class="art-num">Art.-Nr. 10042</div></div>
+            <span class="art-meta">Stk · 2,50 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Corona Extra 0,33l</div><div class="art-num">Art.-Nr. 10043</div></div>
+            <span class="art-meta">Stk · 3,20 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Pils vom Fass 0,5l</div><div class="art-num">Art.-Nr. 10010</div></div>
+            <span class="art-meta">Stk · 2,80 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Cola 0,5l</div><div class="art-num">Art.-Nr. 10051</div></div>
+            <span class="art-meta">Stk · 2,20 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Sprite 0,5l</div><div class="art-num">Art.-Nr. 10052</div></div>
+            <span class="art-meta">Stk · 2,20 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Fanta Orange 0,5l</div><div class="art-num">Art.-Nr. 10053</div></div>
+            <span class="art-meta">Stk · 2,00 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Wasser still 0,75l</div><div class="art-num">Art.-Nr. 10060</div></div>
+            <span class="art-meta">Fla · 1,50 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Wasser sprudel 0,75l</div><div class="art-num">Art.-Nr. 10061</div></div>
+            <span class="art-meta">Fla · 1,50 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Becks 0,5l</div><div class="art-num">Art.-Nr. 10044</div></div>
+            <span class="art-meta">Stk · 2,40 €</span>
+          </div>
+          <div class="art-item">
+            <div><div class="art-name">Guinness 0,44l</div><div class="art-num">Art.-Nr. 10045</div></div>
+            <span class="art-meta">Stk · 4,10 €</span>
+          </div>
+          <div class="art-item" style="justify-content:center; background:var(--bg-muted);">
+            <span style="font-size:12px; color:var(--fg-muted); font-style:italic;">… und 122 weitere Artikel</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- end content -->
+  </div><!-- end main -->
+</div><!-- end app -->
+</body>
+</html>

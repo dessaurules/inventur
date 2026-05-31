@@ -23,7 +23,7 @@ export function ArticleRow({ artikel, selected, active, onRowClick, onToggleSele
       data-id={artikel.id}
       onClick={onRowClick}
       className={cn(
-        'grid cursor-pointer grid-cols-[2rem_5.5rem_minmax(0,1fr)_5.75rem_5rem] items-center gap-2 border-b border-border px-3 py-1.5 text-[12.5px]',
+        'grid cursor-pointer grid-cols-[2rem_5.5rem_minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border px-3 py-1.5 text-[12.5px]',
         active ? 'border-l-2 border-l-primary bg-muted' : 'border-l-2 border-l-transparent',
         selected && !active ? 'bg-muted/40' : '',
         'hover:bg-muted/50'
@@ -50,14 +50,14 @@ export function ArticleRow({ artikel, selected, active, onRowClick, onToggleSele
       <div role="cell" className="font-mono text-[12px] text-muted-foreground tabular-nums">
         {artikel.artikelnummer || '—'}
       </div>
-      <div role="cell" className="min-w-0 truncate font-medium text-foreground">
+      <div role="cell" className="min-w-0 flex-1 truncate font-medium text-foreground">
         {artikel.name}
       </div>
-      <div role="cell" className="text-right font-mono text-[12px] tabular-nums text-foreground">
-        {formatPreisEUR(artikel.preis)}
-      </div>
-      <div role="cell" className="truncate text-muted-foreground">
+      <div role="cell" className="shrink-0 text-right text-[12px] text-muted-foreground">
         {artikel.einheit}
+      </div>
+      <div role="cell" className="shrink-0 text-right font-mono text-[12px] tabular-nums text-foreground">
+        {formatPreisEUR(artikel.preis)}
       </div>
     </div>
   )
