@@ -37,6 +37,7 @@ import { Toaster } from 'sonner'
 
 const MagazinPage = lazy(() => import('./backend/magazin/MagazinPage.jsx'))
 const LagerverwaltungPage = lazy(() => import('./components/LagerverwaltungPage.jsx'))
+const MitarbeiterPage = lazy(() => import('./backend/mitarbeiter/MitarbeiterPage.jsx'))
 const MitarbeiterView = lazy(() => import('./components/MitarbeiterView.jsx'))
 
 function ViewLoadingFallback() {
@@ -396,8 +397,20 @@ function App({ countingApp = false } = {}) {
   }, [countingApp, zaehlScopeValue])
 
   useEffect(() => {
-    const applyAuthState = () => {
-      setCurrentUser(mapPbRecordToUser(pb.authStore.model))
+    const applyAuthState = async () => {
+      const model = pb.authStore.model
+      if (!model) {
+        setCurrentUser(null)
+        return
+      }
+      // Lade User mit expandierter tenant_id Relation
+      try {
+        const expandedUser = await pb.collection('users').getOne(model.id, { expand: 'tenant_id' })
+        setCurrentUser(mapPbRecordToUser(expandedUser))
+      } catch {
+        // Fallback auf authStore.model wenn die Abfrage fehlschlägt
+        setCurrentUser(mapPbRecordToUser(model))
+      }
     }
     applyAuthState()
     const unsubscribe = pb.authStore.onChange(() => applyAuthState(), true)
@@ -2098,7 +2111,7 @@ function App({ countingApp = false } = {}) {
 
         {authReady && currentUser && view === 'mitarbeiter' && userCan(currentUser, 'manageUsers') ? (
           <Suspense fallback={<ViewLoadingFallback />}>
-            <MitarbeiterView />
+            <MitarbeiterPage currentUser={currentUser} />
           </Suspense>
         ) : null}
 
