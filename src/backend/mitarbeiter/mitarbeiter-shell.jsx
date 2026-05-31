@@ -14,12 +14,12 @@ export function MitarbeiterShell({ currentUser }) {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
 
   const { data: employees = [], refetch: refetchEmployees } = useQuery({
-    queryKey: ['mitarbeiter', currentUser?.tenant_id],
+    queryKey: ['mitarbeiter', currentUser?.tenantId],
     queryFn: async () => {
-      if (!currentUser?.tenant_id) return []
+      if (!currentUser?.tenantId) return []
       try {
         const records = await pb.collection(PB_COLLECTIONS.users).getFullList({
-          filter: `tenant_id = "${currentUser.tenant_id}"`,
+          filter: `tenant_id = "${currentUser.tenantId}"`,
           sort: '-created',
         })
         return records.map(mapPbRecordToEmployee)
@@ -28,12 +28,12 @@ export function MitarbeiterShell({ currentUser }) {
         return []
       }
     },
-    enabled: !!currentUser?.tenant_id,
+    enabled: !!currentUser?.tenantId,
   })
 
   // Subscribe to real-time user updates
   useEffect(() => {
-    if (!currentUser?.tenant_id) return
+    if (!currentUser?.tenantId) return
 
     const unsubscribe = pb
       .collection(PB_COLLECTIONS.users)
@@ -44,7 +44,7 @@ export function MitarbeiterShell({ currentUser }) {
     return () => {
       unsubscribe()
     }
-  }, [currentUser?.tenant_id, refetchEmployees])
+  }, [currentUser?.tenantId, refetchEmployees])
 
   const filteredEmployees = filterByRole(employees, roleFilter)
   const counts = countsByRole(employees)
@@ -83,7 +83,7 @@ export function MitarbeiterShell({ currentUser }) {
       <InviteDialog
         open={inviteDialogOpen}
         onOpenChange={setInviteDialogOpen}
-        tenantId={currentUser?.tenant_id}
+        tenantId={currentUser?.tenantId}
         onInviteSent={refetchEmployees}
       />
     </div>
