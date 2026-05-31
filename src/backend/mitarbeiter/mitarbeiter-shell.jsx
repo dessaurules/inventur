@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { pb } from '../../lib/pocketbase.js'
 import { PB_COLLECTIONS } from '../../lib/pocketbaseCollections.js'
@@ -31,20 +31,37 @@ export function MitarbeiterShell({ currentUser }) {
     enabled: !!currentUser?.tenantId,
   })
 
+  // Memoize refetch to prevent subscription re-subscriptions
+  const memoRefetch = useCallback(() => {
+    refetchEmployees()
+  }, [refetchEmployees])
+
   // Subscribe to real-time user updates
   useEffect(() => {
     if (!currentUser?.tenantId) return
 
-    const unsubscribe = pb
-      .collection(PB_COLLECTIONS.users)
-      .subscribe('*', async () => {
-        await refetchEmployees()
-      })
+    let unsubscribe = null
+
+    const setupSubscription = async () => {
+      try {
+        unsubscribe = await pb
+          .collection(PB_COLLECTIONS.users)
+          .subscribe('*', () => {
+            memoRefetch()
+          })
+      } catch (err) {
+        console.error('Failed to subscribe to users:', err)
+      }
+    }
+
+    setupSubscription()
 
     return () => {
-      unsubscribe()
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe()
+      }
     }
-  }, [currentUser?.tenantId, refetchEmployees])
+  }, [currentUser?.tenantId, memoRefetch])
 
   const filteredEmployees = filterByRole(employees, roleFilter)
   const counts = countsByRole(employees)
