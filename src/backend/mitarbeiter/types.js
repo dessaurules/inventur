@@ -1,4 +1,78 @@
+/**
+ * Mappt PocketBase user record zu Employee-Objekt
+ * @param {object} record - PocketBase user record
+ * @returns {object} Employee object
+ */
 export function mapPbRecordToEmployee(record) {
-  // Wird implementiert in Task 2
-  return null
+  if (!record) return null
+  return {
+    id: record.id,
+    email: record.email ?? '',
+    firstName: String(record.first_name ?? '').trim(),
+    lastName: String(record.last_name ?? '').trim(),
+    fullName: `${String(record.first_name ?? '').trim()} ${String(record.last_name ?? '').trim()}`.trim(),
+    role: String(record.role ?? 'mitarbeiter').toLowerCase(),
+    active: Boolean(record.active ?? true),
+    createdAt: record.created ?? null,
+    lastActiveAt: record.last_active_at ?? null,
+    tenantId: typeof record.tenant_id === 'string'
+      ? record.tenant_id
+      : (record.tenant_id?.id ?? null),
+  }
+}
+
+/**
+ * Rollen definieren (Deutsch)
+ */
+export const ROLES = {
+  mitarbeiter: { key: 'mitarbeiter', label: 'Mitarbeiter', order: 0 },
+  schichtleiter: { key: 'schichtleiter', label: 'Schichtleiter', order: 1 },
+  admin: { key: 'admin', label: 'Admin', order: 2 },
+}
+
+/**
+ * Gruppiere Mitarbeiter nach Rolle mit Counts
+ * @param {Array} employees
+ * @returns {object} { all: count, mitarbeiter: count, schichtleiter: count, admin: count }
+ */
+export function countsByRole(employees) {
+  const counts = {
+    all: employees.length,
+    mitarbeiter: 0,
+    schichtleiter: 0,
+    admin: 0,
+  }
+  for (const emp of employees) {
+    counts[emp.role] = (counts[emp.role] ?? 0) + 1
+  }
+  return counts
+}
+
+/**
+ * Filter employees by role
+ * @param {Array} employees
+ * @param {string} roleFilter - 'all' | 'mitarbeiter' | 'schichtleiter' | 'admin'
+ * @returns {Array} Filtered employees
+ */
+export function filterByRole(employees, roleFilter) {
+  if (roleFilter === 'all') return employees
+  return employees.filter((e) => e.role === roleFilter)
+}
+
+/**
+ * Format lastActiveAt für Display
+ * @param {string|null} date - ISO date string
+ * @returns {string} Readable format ("vor 2h", "vor 3 Tagen", etc.)
+ */
+export function formatLastActive(date) {
+  if (!date) return 'Nie'
+  const then = new Date(date).getTime()
+  const now = Date.now()
+  const diffMs = now - then
+  const diffH = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffD = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  if (diffH < 1) return 'gerade eben'
+  if (diffH < 24) return `vor ${diffH}h`
+  if (diffD < 7) return `vor ${diffD}d`
+  return new Date(date).toLocaleDateString('de-DE')
 }
