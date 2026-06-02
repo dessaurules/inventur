@@ -6,7 +6,6 @@ import { sortMagazinArticles } from './article-list-sort.js'
 import { ArticleList } from './article-list.jsx'
 import { CommandPalette } from './command-palette.jsx'
 import { DetailDrawer } from './detail-drawer.jsx'
-import { LagerSelector } from './lager-selector.jsx'
 import { SidebarCategories } from './sidebar-categories.jsx'
 import { isEditableTarget, useKeyboardShortcuts } from './hooks/use-keyboard-shortcuts.js'
 import { InvoiceImportDialog } from './invoice-import-dialog.jsx'
@@ -807,14 +806,6 @@ export function MagazinShell({
       ) : null}
       <div className="flex min-h-0 min-w-0 flex-1">
         <div className="flex h-full min-w-0 shrink-0 flex-col">
-          <LagerSelector
-            lagerList={lagerList}
-            selectedId={selectedLagerId}
-            onSelect={(id) => {
-              setSelectedLagerId(id)
-              setActiveSidebar('all')
-            }}
-          />
           <SidebarCategories
             categoryNames={orderedCategoryNames}
             countsByCategory={countsByCategory}
