@@ -878,64 +878,10 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         </p>
       ) : null}
 
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border bg-background px-3 gap-2">
-        <span id="lagerverwaltung-page-h1" className="text-sm font-semibold text-foreground">
-          Lagerverwaltung
-        </span>
-        <div className="relative flex shrink-0 items-center gap-2" ref={tenantMenuRef}>
-          <button
-            type="button"
-            className={cn(
-              'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[12.5px] font-medium text-foreground',
-              'hover:bg-muted'
-            )}
-            aria-expanded={tenantMenuOpen}
-            onClick={() => setTenantMenuOpen((o) => !o)}
-          >
-            <span className="max-w-[12rem] truncate sm:max-w-[14rem]">{currentStandortName}</span>
-            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
-          </button>
-          {tenantMenuOpen ? (
-            <div
-              className="absolute right-0 top-full z-30 mt-1 min-w-[12rem] rounded-md border border-border bg-background py-1 shadow-md"
-              role="menu"
-            >
-              {standorteList.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="menuitem"
-                  className={cn(
-                    'block w-full px-3 py-2 text-left text-[12.5px] hover:bg-muted',
-                    s.id === standortId && 'bg-muted/60'
-                  )}
-                  onClick={() => pickStandort(s.id)}
-                >
-                  {s.name || s.id}
-                </button>
-              ))}
-              {recordPbAdmin(pb.authStore.model ?? undefined) && !readOnly ? (
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="block w-full border-t border-border px-3 py-2 text-left text-[12.5px] font-medium text-primary hover:bg-muted"
-                  onClick={() => {
-                    setTenantMenuOpen(false)
-                    void createStandort()
-                  }}
-                >
-                  Weiteres anlegen
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      </div>
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background">
-        <header className="shrink-0 border-b border-border px-3 py-2">
-
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Bereiche">
+        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-3">
+          <div className="flex items-center gap-2" role="tablist" aria-label="Bereiche">
             <button
               type="button"
               role="tab"
@@ -984,6 +930,56 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
               <span className="tabular-nums text-xs text-muted-foreground">{archivedLagers.length}</span>
             </button>
           </div>
+          {standorteList.length > 1 && (
+            <div className="relative ml-auto flex shrink-0 items-center" ref={tenantMenuRef}>
+              <button
+                type="button"
+                className={cn(
+                  'inline-flex h-8 items-center gap-1 rounded-md border border-border bg-background px-2.5 text-[12.5px] font-medium text-foreground',
+                  'hover:bg-muted'
+                )}
+                aria-expanded={tenantMenuOpen}
+                onClick={() => setTenantMenuOpen((o) => !o)}
+              >
+                <span className="max-w-[12rem] truncate sm:max-w-[14rem]">{currentStandortName}</span>
+                <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+              </button>
+              {tenantMenuOpen ? (
+                <div
+                  className="absolute right-0 top-full z-30 mt-1 min-w-[12rem] rounded-md border border-border bg-background py-1 shadow-md"
+                  role="menu"
+                >
+                  {standorteList.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="menuitem"
+                      className={cn(
+                        'block w-full px-3 py-2 text-left text-[12.5px] hover:bg-muted',
+                        s.id === standortId && 'bg-muted/60'
+                      )}
+                      onClick={() => pickStandort(s.id)}
+                    >
+                      {s.name || s.id}
+                    </button>
+                  ))}
+                  {recordPbAdmin(pb.authStore.model ?? undefined) && !readOnly ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="block w-full border-t border-border px-3 py-2 text-left text-[12.5px] font-medium text-primary hover:bg-muted"
+                      onClick={() => {
+                        setTenantMenuOpen(false)
+                        void createStandort()
+                      }}
+                    >
+                      Weiteres anlegen
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          )}
         </header>
 
         {activeTab === 'lager' ? (
@@ -993,14 +989,6 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 <span className="text-sm font-semibold text-foreground">Lager</span>
               </div>
               <div className="min-h-0 flex-1 overflow-auto bg-background" role="region" aria-label="Lagerliste">
-                <div
-                  className={cn(
-                    'sticky top-0 z-10 border-b border-border bg-background px-3 py-1.5',
-                    'text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground'
-                  )}
-                >
-                  <span>Lager</span>
-                </div>
                 {filteredSidebarLagers.length === 0 ? (
                   <p className="p-8 text-center text-[12.5px] text-muted-foreground">Keine Lager.</p>
                 ) : (
@@ -1075,7 +1063,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 </div>
               ) : (
                 <>
-                  <header className="flex h-12 shrink-0 flex-col gap-1 border-b border-border px-3 py-2">
+                  <header className="flex h-12 shrink-0 items-center border-b border-border px-3 py-2">
                     <input
                       className="w-full truncate rounded border border-transparent bg-transparent px-1 text-sm font-semibold text-foreground
                         hover:border-input focus:border-input focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1086,13 +1074,10 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                       disabled={readOnly || busy}
                       aria-label="Lagername"
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                      {unterCount(selectedLager.id)} U-Lager · {lagerArticles.length} Artikel
-                    </p>
                   </header>
 
                   <div className="min-h-0 flex-1 overflow-y-auto">
-                    <div className="space-y-6 p-6">
+                    <div className="space-y-3 p-3">
                     {canAssignUsers ? (
                       <div className="space-y-2">
                         <div className="flex gap-1.5">
@@ -1100,7 +1085,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             value={assignUserId}
                             onChange={(e) => setAssignUserId(e.target.value)}
                             disabled={busy}
-                            className="h-7 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-[11.5px]"
+                            className="h-8 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-[12.5px]"
                             aria-label="Nutzer"
                           >
                             <option value="">Nutzer hinzufügen …</option>
@@ -1115,7 +1100,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                             onClick={() => void addAssignment()}
                             disabled={busy}
                             className={cn(
-                              'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground',
+                              'inline-flex h-8 shrink-0 items-center gap-1 rounded-md bg-primary px-2 text-[12.5px] font-medium text-primary-foreground',
                               'hover:opacity-90 disabled:opacity-50'
                             )}
                           >
@@ -1132,7 +1117,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                                 return (
                                   <li
                                     key={row.id}
-                                    className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-[12px] text-foreground"
+                                    className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-[12.5px] text-foreground"
                                   >
                                     <span>{em}</span>
                                     {!readOnly && (
