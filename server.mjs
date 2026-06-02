@@ -342,7 +342,7 @@ async function requirePocketBase() {
   return { ok: true }
 }
 
-app.use(compression())
+app.use(compression({ filter: (req, res) => { if (req.url && req.url.includes('/api/realtime')) return false; return compression.filter(req, res); } }))
 app.use(cors())
 
 /**
@@ -529,7 +529,7 @@ app.post('/api/invite/accept', async (req, res) => {
     email,
     password,
     passwordConfirm,
-    emailVisibility: false,
+    emailVisibility: true,
     verified: false,
     role,
     is_admin: targetIsAdmin,

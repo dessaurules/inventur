@@ -756,7 +756,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   const removeAssignment = async (id) => {
     setBusy(true)
     try {
-      await pb.collection(PB_COLLECTIONS.userUnterlager).delete(id)
+      await pb.collection(PB_COLLECTIONS.userLager).delete(id)
       await loadAssignments()
       showFeedback('ok', 'Zuweisung entfernt.')
     } catch (err) {
