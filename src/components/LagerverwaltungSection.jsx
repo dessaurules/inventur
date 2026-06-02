@@ -75,6 +75,47 @@ function SortableLagerRow({ lager, onSelect, isSelected }) {
   )
 }
 
+function DraggableLagerButton({ lager, isSelected, onSelect }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lager.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center"
+    >
+      <button
+        type="button"
+        onClick={() => onSelect()}
+        className={cn(
+          'flex w-full items-center border-b border-border px-3 py-1 text-left text-[12.5px] transition-colors',
+          'cursor-move',
+          isSelected
+            ? 'border-l-2 border-l-primary bg-muted'
+            : 'border-l-2 border-l-transparent hover:bg-muted/50'
+        )}
+        {...attributes}
+        {...listeners}
+      >
+        <span className="min-w-0 truncate font-medium text-foreground">{lager.name}</span>
+      </button>
+    </div>
+  )
+}
+
 /** @param {Record<string, unknown> | null | undefined} record */
 function userTenantRelationId(record) {
   if (!record) return null
@@ -908,29 +949,58 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 {filteredSidebarLagers.length === 0 ? (
                   <p className="p-8 text-center text-[12.5px] text-muted-foreground">Keine Lager.</p>
                 ) : (
-                  <ul>
-                    {filteredSidebarLagers.map((l) => {
-                      const active = l.id === selectedLagerId
-                      const uc = unterCount(l.id)
-                      const ac = artikelCount(l.id)
-                      return (
-                        <li key={l.id}>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedLagerId(l.id)}
-                            className={cn(
-                              'flex w-full items-center border-b border-border px-3 py-1 text-left text-[12.5px] transition-colors',
-                              active
-                                ? 'border-l-2 border-l-primary bg-muted'
-                                : 'border-l-2 border-l-transparent hover:bg-muted/50'
-                            )}
-                          >
-                            <span className="min-w-0 truncate font-medium text-foreground">{l.name}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                  <DndContext
+                    sensors={useSensors(useSensor(PointerSensor))}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event) => {
+                      const { active, over } = event
+                      if (over && active.id !== over.id) {
+                        // Find indices in the full activeLagers list, not just filtered
+                        const oldIndex = activeLagers.findIndex((l) => l.id === active.id)
+                        const newIndex = activeLagers.findIndex((l) => l.id === over.id)
+                        if (oldIndex >= 0 && newIndex >= 0) {
+                          const newActiveLagers = arrayMove(activeLagers, oldIndex, newIndex)
+                          setLagers((prev) => {
+                            const updated = [...prev]
+                            // Update sort_index for all active lagers
+                            newActiveLagers.forEach((l, idx) => {
+                              const prevIdx = updated.findIndex((item) => item.id === l.id)
+                              if (prevIdx >= 0) {
+                                updated[prevIdx] = { ...updated[prevIdx], sort_index: idx }
+                              }
+                            })
+                            return updated
+                          })
+                          // Save to PocketBase asynchronously
+                          newActiveLagers.forEach((l, idx) => {
+                            pb.collection(PB_COLLECTIONS.lager)
+                              .update(l.id, { sort_index: idx })
+                              .catch((err) => console.error('Sort update failed:', err))
+                          })
+                        }
+                      }
+                    }}
+                  >
+                    <SortableContext
+                      items={filteredSidebarLagers.map((l) => l.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <ul className="flex-1 min-h-0 overflow-y-auto">
+                        {filteredSidebarLagers.map((l) => {
+                          const active = l.id === selectedLagerId
+                          return (
+                            <li key={l.id} className="list-none">
+                              <DraggableLagerButton
+                                lager={l}
+                                isSelected={active}
+                                onSelect={() => setSelectedLagerId(l.id)}
+                              />
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </div>
             </div>
