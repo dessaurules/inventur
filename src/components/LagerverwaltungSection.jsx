@@ -75,6 +75,52 @@ function SortableLagerRow({ lager, onSelect, isSelected }) {
   )
 }
 
+function SortableUnterlagerRow({ unterlager, onDelete }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: unterlager.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center justify-between gap-2 px-2.5 py-1.5 hover:bg-muted/50"
+    >
+      <div className="flex items-center gap-1 min-w-0 flex-1">
+        <button
+          type="button"
+          className="shrink-0 p-0.5 text-muted-foreground cursor-grab active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={16} />
+        </button>
+        <span className="text-sm text-foreground truncate">{unterlager.name}</span>
+      </div>
+      <div className="flex shrink-0 items-center gap-0.5">
+        <button
+          type="button"
+          onClick={() => onDelete(unterlager.id)}
+          className="p-0.5 text-destructive hover:bg-destructive/10 rounded"
+        >
+          <X size={14} />
+        </button>
+      </div>
+    </li>
+  )
+}
+
 function DraggableLagerButton({ lager, isSelected, onSelect }) {
   const {
     attributes,
