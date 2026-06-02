@@ -39,7 +39,6 @@ const MagazinPage = lazy(() => import('./backend/magazin/MagazinPage.jsx'))
 const LagerverwaltungPage = lazy(() => import('./components/LagerverwaltungPage.jsx'))
 const MitarbeiterPage = lazy(() => import('./backend/mitarbeiter/MitarbeiterPage.jsx'))
 const MitarbeiterView = lazy(() => import('./components/MitarbeiterView.jsx'))
-const InventurenPage = lazy(() => import('./backend/inventuren/InventurenPage.jsx'))
 
 function ViewLoadingFallback() {
   return (
@@ -155,10 +154,9 @@ function readStoredAppView(countingApp) {
       v === 'lager' ||
       v === 'default' ||
       v === 'mitarbeiter' ||
-      v === 'account' ||
-      v === 'inventuren'
+      v === 'account'
     ) {
-      if (countingApp && (v === 'admin' || v === 'lager' || v === 'mitarbeiter' || v === 'inventuren')) {
+      if (countingApp && (v === 'admin' || v === 'lager' || v === 'mitarbeiter')) {
         return 'default'
       }
       return v
@@ -178,7 +176,6 @@ function pickViewAfterLogin(user, countingApp) {
   }
   if (stored === 'mitarbeiter' && userCan(user, 'manageUsers')) return 'mitarbeiter'
   if (stored === 'account') return 'account'
-  if (userCan(user, 'magazin:read') && stored === 'inventuren') return 'inventuren'
   if (userCan(user, 'magazin:read') && stored === 'lager') return 'lager'
   if (userCan(user, 'magazin:read') && stored === 'admin') return 'admin'
   if (!userCan(user, 'inventur') && userCan(user, 'magazin:read')) return 'admin'
@@ -469,12 +466,6 @@ function App({ countingApp = false } = {}) {
   }, [currentUser, view])
 
   useEffect(() => {
-    if (currentUser && view === 'inventuren' && !userCan(currentUser, 'magazin:read')) {
-      setView('default')
-    }
-  }, [currentUser, view])
-
-  useEffect(() => {
     if (!settingsMenuOpen) return
     const onDown = (e) => {
       if (settingsMenuRef.current && !settingsMenuRef.current.contains(e.target)) {
@@ -524,7 +515,7 @@ function App({ countingApp = false } = {}) {
 
   useEffect(() => {
     if (!countingApp || !currentUser) return
-    if (view === 'admin' || view === 'lager' || view === 'mitarbeiter' || view === 'inventuren') {
+    if (view === 'admin' || view === 'lager' || view === 'mitarbeiter') {
       setView('default')
     }
   }, [countingApp, currentUser, view])
@@ -1301,18 +1292,13 @@ function App({ countingApp = false } = {}) {
   const handleViewChange = (newView) => {
     if (
       countingApp &&
-      (newView === 'admin' || newView === 'lager' || newView === 'mitarbeiter' || newView === 'inventuren')
+      (newView === 'admin' || newView === 'lager' || newView === 'mitarbeiter')
     ) {
       setView('default')
       setMenuOpen(false)
       return
     }
     if (newView === 'admin' && !userCan(currentUser, 'magazin:read')) {
-      setView('default')
-      setMenuOpen(false)
-      return
-    }
-    if (newView === 'inventuren' && !userCan(currentUser, 'magazin:read')) {
       setView('default')
       setMenuOpen(false)
       return
@@ -1866,15 +1852,6 @@ function App({ countingApp = false } = {}) {
             {!countingApp && currentUser && userCan(currentUser, 'magazin:read') ? (
               <button
                 type="button"
-                onClick={() => handleViewChange('inventuren')}
-                className={view === 'inventuren' ? 'active' : ''}
-              >
-                Inventurenverwaltung
-              </button>
-            ) : null}
-            {!countingApp && currentUser && userCan(currentUser, 'magazin:read') ? (
-              <button
-                type="button"
                 onClick={() => handleViewChange('lager')}
                 className={view === 'lager' ? 'active' : ''}
               >
@@ -2135,12 +2112,6 @@ function App({ countingApp = false } = {}) {
         {authReady && currentUser && view === 'mitarbeiter' && userCan(currentUser, 'manageUsers') ? (
           <Suspense fallback={<ViewLoadingFallback />}>
             <MitarbeiterPage currentUser={currentUser} />
-          </Suspense>
-        ) : null}
-
-        {authReady && currentUser && view === 'inventuren' && userCan(currentUser, 'magazin:read') ? (
-          <Suspense fallback={<ViewLoadingFallback />}>
-            <InventurenPage currentUser={currentUser} />
           </Suspense>
         ) : null}
 
