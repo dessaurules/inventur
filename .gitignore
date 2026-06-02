@@ -36,6 +36,7 @@ certs/*.key
 pocketbase-bin/pocketbase
 pocketbase-bin/pocketbase-mac-arm64
 pocketbase-bin/pocketbase-linux-arm64
+pocketbase-bin/pb_public/
 
 # Editor directories and files
 .vscode/*

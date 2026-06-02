@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="UTF-8"><title>OAuth Test</title>
+<script src="https://cdn.jsdelivr.net/npm/pocketbase/dist/pocketbase.umd.js"></script>
+</head>
+<body>
+<h2>Google OAuth Test</h2>
+<button id="btn" onclick="login()">Mit Google anmelden</button>
+<pre id="out"></pre>
+<script>
+const pb = new PocketBase("https://pocketbase.robeserver.duckdns.org");
+async function login() {
+  document.getElementById("btn").disabled = true;
+  document.getElementById("out").textContent = "Öffne Google...";
+  try {
+    const auth = await pb.collection("users").authWithOAuth2({ provider: "google" });
+    document.getElementById("out").textContent = "Erfolg!\n" + JSON.stringify({id:auth.record.id,email:auth.record.email},null,2);
+  } catch(e) { document.getElementById("out").textContent = "Fehler: " + e.message; }
+  document.getElementById("btn").disabled = false;
+}
+</script>
+</body></html>
