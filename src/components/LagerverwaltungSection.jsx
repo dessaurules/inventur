@@ -988,7 +988,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
 
         {activeTab === 'lager' ? (
           <div className="flex min-h-0 flex-1 bg-background">
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-background">
               <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
                 <input
                   type="search"
@@ -1106,13 +1106,13 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   </DndContext>
                 )}
               </div>
-            </div>
+            </aside>
 
             {/* MITTLERE SPALTE: Verwaltung */}
             <div
               className={cn(
-                'flex h-full min-h-0 w-[320px] shrink-0 flex-col border-l border-border bg-background',
-                'max-[1180px]:fixed max-[1180px]:inset-y-0 max-[1180px]:right-0 max-[1180px]:z-40 max-[1180px]:shadow-xl',
+                'flex h-full min-h-0 flex-1 flex-col bg-background',
+                'max-[1180px]:fixed max-[1180px]:inset-y-0 max-[1180px]:right-0 max-[1180px]:z-40 max-[1180px]:w-[320px] max-[1180px]:shrink-0 max-[1180px]:border-l max-[1180px]:border-border max-[1180px]:shadow-xl',
                 !lagerDrawerOpen && 'max-[1180px]:hidden'
               )}
               aria-label="Lager-Verwaltung"
@@ -1328,7 +1328,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
 
             {/* RECHTE SPALTE: Artikel */}
             <div className={cn(
-              'flex h-full min-h-0 w-[340px] shrink-0 flex-col border-l border-border bg-background',
+              'flex h-full min-h-0 w-96 shrink-0 flex-col border-l border-border bg-background',
               'max-[1180px]:hidden'
             )}
               aria-label="Artikel"
