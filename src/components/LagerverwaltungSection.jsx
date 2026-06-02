@@ -167,31 +167,53 @@ function DraggableLagerButton({ lager, isSelected, onSelect }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
 
+  const [hovered, setHovered] = useState(false)
+
   return (
-    <div
+    <li
       ref={setNodeRef}
       style={style}
-      className="flex items-center"
+      className={cn('flex items-stretch gap-0.5', isDragging && 'opacity-60')}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="flex shrink-0 items-center rounded-md px-0.5 text-muted-foreground hover:bg-muted/60"
+        aria-label={`Lager ${lager.name} verschieben`}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
       <button
         type="button"
         onClick={() => onSelect()}
         className={cn(
-          'flex w-full items-center border-b border-border px-3 py-1 text-left text-[12.5px] transition-colors',
-          'cursor-move',
+          'flex min-w-0 flex-1 items-center rounded-md px-2 py-1.5 text-left text-[12.5px]',
           isSelected
-            ? 'border-l-2 border-l-primary bg-muted'
-            : 'border-l-2 border-l-transparent hover:bg-muted/50'
+            ? 'bg-muted font-medium text-foreground'
+            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
         )}
-        {...attributes}
-        {...listeners}
       >
-        <span className="min-w-0 truncate font-medium text-foreground">{lager.name}</span>
+        <span className="min-w-0 truncate">{lager.name}</span>
       </button>
-    </div>
+      <button
+        type="button"
+        onClick={() => {}}
+        className={cn(
+          'flex shrink-0 items-center rounded-md px-1 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive',
+          hovered ? 'opacity-100' : 'opacity-0'
+        )}
+        aria-label={`Lager ${lager.name} löschen`}
+        tabIndex={hovered ? 0 : -1}
+        style={{ pointerEvents: hovered ? 'auto' : 'none' }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+    </li>
   )
 }
 
@@ -1071,13 +1093,12 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                         {filteredSidebarLagers.map((l) => {
                           const active = l.id === selectedLagerId
                           return (
-                            <li key={l.id} className="list-none">
-                              <DraggableLagerButton
-                                lager={l}
-                                isSelected={active}
-                                onSelect={() => setSelectedLagerId(l.id)}
-                              />
-                            </li>
+                            <DraggableLagerButton
+                              key={l.id}
+                              lager={l}
+                              isSelected={active}
+                              onSelect={() => setSelectedLagerId(l.id)}
+                            />
                           )
                         })}
                       </ul>
