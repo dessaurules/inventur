@@ -164,39 +164,19 @@ export function MagazinShell({
 
     const loadLager = async () => {
       try {
-        let laagerIds = null
-
-        // Wenn User Admin ist: alle Lager des Standorts laden
-        if (currentUser?.isAdmin) {
-          const allLager = await pb.collection(PB_COLLECTIONS.lager)
-            .getFullList({ filter: `standort = "${tenantId}"`, sort: 'sort_index,name' })
-          laagerIds = allLager.map((l) => l.id)
-        } else {
-          // Normaler User: nur zugewiesene Lager laden
-          const userLagerAssignments = await pb.collection(PB_COLLECTIONS.userLager)
-            .getFullList({ filter: `user = "${currentUser.id}"`, sort: 'sort_index' })
-          laagerIds = userLagerAssignments.map((ul) => ul.lager)
-        }
-
-        // Jetzt alle Lager mit diesen IDs laden
-        if (laagerIds && laagerIds.length > 0) {
-          const filterConditions = laagerIds.map((id) => `id = "${id}"`).join(' || ')
-          const list = await pb.collection(PB_COLLECTIONS.lager)
-            .getFullList({ filter: `(${filterConditions}) && standort = "${tenantId}"`, sort: 'sort_index,name' })
-          const activeLager = list.filter((l) => l.getBool('aktiv') === true)
-          setLagerList(activeLager.map((l) => ({ id: l.id, name: l.getString('name') })))
-          setSelectedLagerId((prev) => prev ?? (activeLager[0]?.id ?? null))
-        } else {
-          setLagerList([])
-          setSelectedLagerId(null)
-        }
+        const allLager = await pb.collection(PB_COLLECTIONS.lager)
+          .getFullList({ filter: `standort = "${tenantId}"`, sort: 'sort_index,name' })
+        const activeLager = allLager.filter((l) => l.aktiv !== false)
+        setLagerList(activeLager.map((l) => ({ id: l.id, name: l.name })))
+        setSelectedLagerId((prev) => prev ?? (activeLager[0]?.id ?? null))
       } catch (err) {
-        // Silent fail für Daten die nicht vorhanden sind
+        console.error('[LagerSelector] Fehler beim Laden:', err)
+        setLagerList([])
       }
     }
 
     loadLager()
-  }, [currentUser?.tenantId, currentUser?.isAdmin, currentUser?.id])
+  }, [currentUser?.tenantId])
 
   const lagerFilteredItems = useMemo(() => {
     if (!selectedLagerId) return items
@@ -847,6 +827,9 @@ export function MagazinShell({
             }}
             onDeleteCategory={canMutate ? deleteCategoryPrompt : undefined}
             onCategoryOrderChange={setCategoryOrder}
+            lagerList={lagerList}
+            selectedLagerId={selectedLagerId}
+            onSelectLager={(id) => setSelectedLagerId(id)}
           />
         </div>
         <div ref={listWrapRef} className="flex min-w-0 flex-1 flex-col">
