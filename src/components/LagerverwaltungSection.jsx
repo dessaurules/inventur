@@ -113,35 +113,43 @@ function SortableUnterlagerRow({ unterlager, onDelete }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
+
+  const [hovered, setHovered] = useState(false)
 
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className="flex items-center justify-between gap-2 px-2.5 py-1.5 hover:bg-muted/50"
+      className={cn('flex items-stretch gap-0.5', isDragging && 'opacity-60')}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className="flex items-center gap-1 min-w-0 flex-1">
-        <button
-          type="button"
-          className="shrink-0 p-0.5 text-muted-foreground cursor-grab active:cursor-grabbing"
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical size={16} />
-        </button>
-        <span className="text-sm text-foreground truncate">{unterlager.name}</span>
-      </div>
-      <div className="flex shrink-0 items-center gap-0.5">
-        <button
-          type="button"
-          onClick={() => onDelete(unterlager.id)}
-          className="p-0.5 text-destructive hover:bg-destructive/10 rounded"
-        >
-          <X size={14} />
-        </button>
-      </div>
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="flex shrink-0 items-center rounded-md px-0.5 text-muted-foreground hover:bg-muted/60"
+        aria-label={`Unterlager ${unterlager.name} verschieben`}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <span className="flex min-w-0 flex-1 items-center rounded-md px-2 py-1.5 text-[12.5px] text-muted-foreground truncate">
+        {unterlager.name}
+      </span>
+      <button
+        type="button"
+        onClick={() => onDelete(unterlager.id)}
+        className={cn(
+          'flex shrink-0 items-center rounded-md px-1 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive',
+          hovered ? 'opacity-100' : 'opacity-0'
+        )}
+        aria-label={`Unterlager ${unterlager.name} löschen`}
+        tabIndex={hovered ? 0 : -1}
+        style={{ pointerEvents: hovered ? 'auto' : 'none' }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </li>
   )
 }
