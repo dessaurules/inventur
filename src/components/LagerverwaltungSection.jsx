@@ -4,6 +4,7 @@ import {
   Box,
   Check,
   ChevronDown,
+  GripVertical,
   History,
   Pencil,
   Plus,
@@ -13,6 +14,20 @@ import {
   Warehouse,
   X,
 } from 'lucide-react'
+import {
+  DndContext,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { pb } from '../lib/pocketbase'
 import { pocketBaseFullErrorMessage } from '../lib/pocketBaseErrorMessage'
 import { PB_COLLECTIONS } from '../lib/pocketbaseCollections'
