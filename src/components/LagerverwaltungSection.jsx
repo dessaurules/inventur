@@ -215,6 +215,9 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
   const [standorteInitDone, setStandorteInitDone] = useState(false)
   const [bootstrapStandortName, setBootstrapStandortName] = useState('')
 
+  // DnD sensors for Lager and Unterlager sorting
+  const sensors = useSensors(useSensor(PointerSensor))
+
   const loadLagers = useCallback(async (sid) => {
     if (!sid) {
       setLagers([])
@@ -996,7 +999,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   <p className="p-8 text-center text-[12.5px] text-muted-foreground">Keine Lager.</p>
                 ) : (
                   <DndContext
-                    sensors={useSensors(useSensor(PointerSensor))}
+                    sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={(event) => {
                       const { active, over } = event
@@ -1152,39 +1155,51 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                         Unterlager
                       </h3>
                       {(unterByLager[selectedLager.id] || []).length > 0 ? (
-                        <div className="overflow-hidden rounded-md border border-border">
-                          <ul className="divide-y divide-border">
-                            {(unterByLager[selectedLager.id] || []).map((u) => (
-                              <li
-                                key={u.id}
-                                className="flex items-center justify-between gap-2 px-2.5 py-1.5"
-                              >
-                                <span className="min-w-0 flex-1 text-[12px] font-medium text-foreground">{u.name}</span>
-                                <div className="flex shrink-0 items-center gap-0.5">
-                                  <button
-                                    type="button"
-                                    disabled
-                                    title="Bearbeitung folgt"
-                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground opacity-40"
-                                  >
-                                    <Pencil className="h-2.5 w-2.5" aria-hidden />
-                                  </button>
-                                  {readOnly ? null : (
-                                    <button
-                                      type="button"
-                                      className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive"
-                                      onClick={() => void removeUnterlager(u.id)}
-                                      disabled={busy}
-                                      aria-label="Unterlager entfernen"
-                                    >
-                                      <X className="h-2.5 w-2.5" aria-hidden />
-                                    </button>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
+                        <DndContext
+                          sensors={sensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event) => {
+                            const { active, over } = event
+                            if (over && active.id !== over.id) {
+                              const currentUnter = unterByLager[selectedLager.id] || []
+                              const oldIndex = currentUnter.findIndex((u) => u.id === active.id)
+                              const newIndex = currentUnter.findIndex((u) => u.id === over.id)
+                              if (oldIndex >= 0 && newIndex >= 0) {
+                                const newUnterList = arrayMove(currentUnter, oldIndex, newIndex)
+
+                                // Update UI state
+                                setUnterByLager((prev) => ({
+                                  ...prev,
+                                  [selectedLager.id]: newUnterList
+                                }))
+
+                                // Update sort_index in PocketBase
+                                newUnterList.forEach((u, idx) => {
+                                  pb.collection(PB_COLLECTIONS.unterlager)
+                                    .update(u.id, { sort_index: idx })
+                                    .catch((err) => console.error('Unterlager sort update failed:', err))
+                                })
+                              }
+                            }
+                          }}
+                        >
+                          <SortableContext
+                            items={(unterByLager[selectedLager.id] || []).map(u => u.id)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            <div className="overflow-hidden rounded-md border border-border">
+                              <ul className="divide-y divide-border">
+                                {(unterByLager[selectedLager.id] || []).map((u) => (
+                                  <SortableUnterlagerRow
+                                    key={u.id}
+                                    unterlager={u}
+                                    onDelete={() => removeUnterlager(u.id)}
+                                  />
+                                ))}
+                              </ul>
+                            </div>
+                          </SortableContext>
+                        </DndContext>
                       ) : null}
                       {readOnly ? null : (
                         <div className="flex gap-1.5">
