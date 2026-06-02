@@ -50,27 +50,52 @@ function SortableLagerRow({ lager, onSelect, isSelected }) {
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : 1,
   }
+
+  const [hovered, setHovered] = useState(false)
 
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-1 px-2.5 py-1.5 hover:bg-muted/50 cursor-pointer ${
-        isSelected ? 'bg-muted' : ''
-      }`}
-      onClick={() => onSelect(lager.id)}
+      className={cn('flex items-stretch gap-0.5', isDragging && 'opacity-60')}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       <button
         type="button"
-        className="shrink-0 p-0.5 text-muted-foreground cursor-grab active:cursor-grabbing"
         {...attributes}
         {...listeners}
+        className="flex shrink-0 items-center rounded-md px-0.5 text-muted-foreground hover:bg-muted/60"
+        aria-label={`Lager ${lager.name} verschieben`}
       >
-        <GripVertical size={16} />
+        <GripVertical className="h-4 w-4" />
       </button>
-      <span className="text-sm text-foreground">{lager.name}</span>
+      <button
+        type="button"
+        onClick={() => onSelect(lager.id)}
+        className={cn(
+          'flex min-w-0 flex-1 items-center rounded-md px-2 py-1.5 text-left text-[12.5px]',
+          isSelected
+            ? 'bg-muted font-medium text-foreground'
+            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+        )}
+      >
+        <span className="min-w-0 truncate">{lager.name}</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => {}}
+        className={cn(
+          'flex shrink-0 items-center rounded-md px-1 text-muted-foreground transition-opacity hover:bg-destructive/10 hover:text-destructive',
+          hovered ? 'opacity-100' : 'opacity-0'
+        )}
+        aria-label={`Lager ${lager.name} löschen`}
+        tabIndex={hovered ? 0 : -1}
+        style={{ pointerEvents: hovered ? 'auto' : 'none' }}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
     </li>
   )
 }
