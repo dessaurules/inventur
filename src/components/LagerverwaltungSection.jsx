@@ -987,7 +987,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         </header>
 
         {activeTab === 'lager' ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-row">
+          <div className="flex min-h-0 flex-1 bg-background">
             <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
                 <input
