@@ -45,7 +45,7 @@ export function InventurenShell({ currentUser }) {
       if (!currentUser?.tenantId) return
       try {
         const records = await pb.collection(PB_COLLECTIONS.users).getFullList({
-          filter: `tenant_id = "${currentUser.tenantId}" && (role = "schichtleiter" || role = "admin")`,
+          filter: `tenant_id = "${currentUser.tenantId}" && (role = "lagerleiter" || role = "admin")`,
         })
         setVerantwortliche(records.map((r) => ({ id: r.id, name: `${r.first_name} ${r.last_name}` })))
       } catch (err) {

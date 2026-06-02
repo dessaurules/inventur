@@ -11,7 +11,7 @@ export function mapPbRecordToEmployee(record) {
     firstName: String(record.first_name ?? '').trim(),
     lastName: String(record.last_name ?? '').trim(),
     fullName: `${String(record.first_name ?? '').trim()} ${String(record.last_name ?? '').trim()}`.trim(),
-    role: String(record.role ?? 'mitarbeiter').toLowerCase(),
+    role: String(record.role ?? 'inventur').toLowerCase(),
     active: Boolean(record.active ?? true),
     createdAt: record.created ?? null,
     lastActiveAt: record.last_active_at ?? null,
@@ -22,28 +22,30 @@ export function mapPbRecordToEmployee(record) {
 }
 
 /**
- * Rollen definieren (Deutsch)
+ * Rollen definieren — spiegeln die echten PocketBase-Rollen aus userCapabilities.js
  */
 export const ROLES = {
-  mitarbeiter: { key: 'mitarbeiter', label: 'Mitarbeiter', order: 0 },
-  schichtleiter: { key: 'schichtleiter', label: 'Schichtleiter', order: 1 },
+  inventur: { key: 'inventur', label: 'Inventur', order: 0 },
+  lagerleiter: { key: 'lagerleiter', label: 'Lagerleiter', order: 1 },
   admin: { key: 'admin', label: 'Admin', order: 2 },
+  magazin_readonly: { key: 'magazin_readonly', label: 'Nur Lesen', order: 3 },
 }
 
 /**
  * Gruppiere Mitarbeiter nach Rolle mit Counts
  * @param {Array} employees
- * @returns {object} { all: count, mitarbeiter: count, schichtleiter: count, admin: count }
+ * @returns {object} { all, inventur, lagerleiter, admin, magazin_readonly }
  */
 export function countsByRole(employees) {
   const counts = {
     all: employees.length,
-    mitarbeiter: 0,
-    schichtleiter: 0,
+    inventur: 0,
+    lagerleiter: 0,
     admin: 0,
+    magazin_readonly: 0,
   }
   for (const emp of employees) {
-    counts[emp.role] = (counts[emp.role] ?? 0) + 1
+    if (emp.role in counts) counts[emp.role]++
   }
   return counts
 }
@@ -51,7 +53,7 @@ export function countsByRole(employees) {
 /**
  * Filter employees by role
  * @param {Array} employees
- * @param {string} roleFilter - 'all' | 'mitarbeiter' | 'schichtleiter' | 'admin'
+ * @param {string} roleFilter - 'all' | 'inventur' | 'lagerleiter' | 'admin' | 'magazin_readonly'
  * @returns {Array} Filtered employees
  */
 export function filterByRole(employees, roleFilter) {

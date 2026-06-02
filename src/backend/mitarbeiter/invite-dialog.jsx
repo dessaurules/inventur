@@ -8,7 +8,7 @@ import { PB_COLLECTIONS } from '../../lib/pocketbaseCollections.js'
 
 export function InviteDialog({ open, onOpenChange, tenantId, onInviteSent }) {
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState('mitarbeiter')
+  const [role, setRole] = useState('inventur')
   const [assignLager, setAssignLager] = useState(false)
   const [selectedLager, setSelectedLager] = useState(new Set())
   const [loading, setLoading] = useState(false)
@@ -34,7 +34,7 @@ export function InviteDialog({ open, onOpenChange, tenantId, onInviteSent }) {
       })
       toast.success(`Einladung gesendet an ${trimmedEmail}`)
       setEmail('')
-      setRole('mitarbeiter')
+      setRole('inventur')
       setAssignLager(false)
       setSelectedLager(new Set())
       onOpenChange(false)

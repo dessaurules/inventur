@@ -10,9 +10,10 @@ import { ROLES } from './types.js'
 export function SidebarRoles({ countsByRole, activeRole, onSelectRole }) {
   const roleOptions = [
     { key: 'all', label: 'Alle' },
-    { key: 'admin', label: 'Admins' },
-    { key: 'schichtleiter', label: 'Schichtleiter' },
-    { key: 'mitarbeiter', label: 'Mitarbeiter' },
+    { key: 'admin', label: 'Admin' },
+    { key: 'lagerleiter', label: 'Lagerleiter' },
+    { key: 'inventur', label: 'Inventur' },
+    { key: 'magazin_readonly', label: 'Nur Lesen' },
   ]
 
   return (
