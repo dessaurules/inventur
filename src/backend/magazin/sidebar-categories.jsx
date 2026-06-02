@@ -11,6 +11,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { Archive, Clock, GripVertical, Package, Plus, Trash2 } from 'lucide-react'
 import { cn } from '../../lib/cn.js'
 import { loadCategoryOrder, saveCategoryOrder } from './types.js'
+import { LagerSelector } from './lager-selector.jsx'
 
 function SortableCatRow({ id, label, count, active, onClick, onRename, onDelete }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -124,6 +125,9 @@ export function SidebarCategories({
   onRenameCategory,
   onDeleteCategory,
   onCategoryOrderChange,
+  lagerList,
+  selectedLagerId,
+  onSelectLager,
 }) {
   const baseOrdered = useMemo(() => {
     const merged = [...categoryNames]
@@ -177,6 +181,13 @@ export function SidebarCategories({
       <div className="flex h-12 items-center border-b border-border px-3 py-2">
         <span className="text-sm font-semibold text-foreground">Kategorien</span>
       </div>
+      {lagerList && lagerList.length > 0 && (
+        <LagerSelector
+          lagerList={lagerList}
+          selectedId={selectedLagerId}
+          onSelect={onSelectLager}
+        />
+      )}
       <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-2" aria-label="Kategorien">
         <div>
           <button
