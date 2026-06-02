@@ -278,8 +278,16 @@ export function MagazinShell({
         names.push(a.kategorieId)
       }
     }
+    // Manuell hinzugefügte Kategorien (categoryNamesIn) einschließen,
+    // auch wenn noch kein Artikel zugeordnet ist.
+    for (const c of categoryNamesIn ?? []) {
+      if (c && !seen.has(c)) {
+        seen.add(c)
+        names.push(c)
+      }
+    }
     return names.sort()
-  }, [baseArticles])
+  }, [baseArticles, categoryNamesIn])
 
   const orderedCategoryNames = useMemo(() => {
     const set = new Set(localCategoryNames)
