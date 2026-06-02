@@ -989,57 +989,8 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         {activeTab === 'lager' ? (
           <div className="flex min-h-0 flex-1 bg-background">
             <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-background">
-              <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-                <input
-                  type="search"
-                  value={sidebarQuery}
-                  onChange={(e) => setSidebarQuery(e.target.value)}
-                  placeholder="Lager suchen…"
-                  className={cn(
-                    'h-8 min-w-[10rem] max-w-md flex-1 rounded-md border border-border bg-background px-2 text-[12.5px]',
-                    'placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                  )}
-                  aria-label="Lager suchen"
-                />
-                {readOnly ? null : (
-                  <>
-                    <input
-                      ref={newLagerInputRef}
-                      id="lv-toolbar-new-lager"
-                      type="text"
-                      value={newLagerName}
-                      onChange={(e) => setNewLagerName(e.target.value)}
-                      placeholder="Neues Lager…"
-                      disabled={busy}
-                      className={cn(
-                        'h-8 min-w-[8rem] max-w-xs flex-1 rounded-md border border-dashed border-border bg-background px-2 text-[12.5px]',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-                      )}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault()
-                          void addLager()
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const n = newLagerName.trim()
-                        if (n) void addLager()
-                        else newLagerInputRef.current?.focus()
-                      }}
-                      disabled={busy}
-                      title="Neues Lager anlegen"
-                      className={cn(
-                        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground',
-                        'hover:opacity-90 disabled:opacity-50'
-                      )}
-                    >
-                      <Plus className="h-4 w-4" aria-hidden />
-                    </button>
-                  </>
-                )}
+              <div className="flex shrink-0 items-center border-b border-border px-3 py-2">
+                <span className="text-sm font-semibold text-foreground">Lager</span>
               </div>
               <div className="min-h-0 flex-1 overflow-auto bg-background" role="region" aria-label="Lagerliste">
                 <div
@@ -1124,7 +1075,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 </div>
               ) : (
                 <>
-                  <header className="flex shrink-0 flex-col gap-1 border-b border-border px-3 py-1.5">
+                  <header className="flex h-12 shrink-0 flex-col gap-1 border-b border-border px-3 py-2">
                     <input
                       className="w-full truncate rounded border border-transparent bg-transparent px-1 text-sm font-semibold text-foreground
                         hover:border-input focus:border-input focus:bg-background focus:outline-none focus:ring-1 focus:ring-ring"
@@ -1141,7 +1092,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                   </header>
 
                   <div className="min-h-0 flex-1 overflow-y-auto">
-                    <div className="space-y-3 p-3">
+                    <div className="space-y-6 p-6">
                     {canAssignUsers ? (
                       <div className="space-y-2">
                         <div className="flex gap-1.5">
@@ -1339,7 +1290,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
                 </div>
               ) : (
                 <>
-                  <header className="flex shrink-0 items-center justify-between border-b border-border px-3 py-1.5">
+                  <header className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 py-2">
                     <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
                       Artikel ({lagerArticles.length})
                     </p>
