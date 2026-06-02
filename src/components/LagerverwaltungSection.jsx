@@ -989,7 +989,7 @@ export default function LagerverwaltungSection({ readOnly = false, canAssignUser
         {activeTab === 'lager' ? (
           <div className="flex min-h-0 flex-1 bg-background">
             <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-background">
-              <div className="flex shrink-0 items-center border-b border-border px-3 py-2">
+              <div className="flex h-12 shrink-0 items-center border-b border-border px-3 py-2">
                 <span className="text-sm font-semibold text-foreground">Lager</span>
               </div>
               <div className="min-h-0 flex-1 overflow-auto bg-background" role="region" aria-label="Lagerliste">
