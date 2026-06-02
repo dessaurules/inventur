@@ -37,6 +37,44 @@ import { cn } from '../lib/cn.js'
 
 const STANDORT_STORAGE_KEY = 'vibe-lager-standort-id'
 
+function SortableLagerRow({ lager, onSelect, isSelected }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: lager.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-1 px-2.5 py-1.5 hover:bg-muted/50 cursor-pointer ${
+        isSelected ? 'bg-muted' : ''
+      }`}
+      onClick={() => onSelect(lager.id)}
+    >
+      <button
+        type="button"
+        className="shrink-0 p-0.5 text-muted-foreground cursor-grab active:cursor-grabbing"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical size={16} />
+      </button>
+      <span className="text-sm text-foreground">{lager.name}</span>
+    </li>
+  )
+}
+
 /** @param {Record<string, unknown> | null | undefined} record */
 function userTenantRelationId(record) {
   if (!record) return null
